@@ -35,6 +35,10 @@
 #include "alt_cache.h"
 #include "alt_mmu.h"
 
+#if MMU_ENABLE
+static void mmu_init(void)
+#endif
+
 // =============
 // Reset handler
 // =============

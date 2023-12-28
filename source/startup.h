@@ -56,8 +56,4 @@
 	#define NEON_ENABLE (1)
 #endif
 
-#if MMU_ENABLE
-static void mmu_init(void);
-#endif
-
 #endif
