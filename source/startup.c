@@ -36,7 +36,7 @@
 #include "alt_mmu.h"
 
 #if MMU_ENABLE
-static void mmu_init(void)
+static void mmu_init(void);
 #endif
 
 // =============
