@@ -131,7 +131,7 @@ void _socfpga_main(void) __attribute__ ((unused, alias("reset_handler")));  // A
 // MMU initialisations
 // ===================
 
-// *Note: Altera's MMU alt_mmu_va_space_create() function will create a local temporary MMU table array!!  Ensure your stack space is greater than 4096 bytes!
+// *Note: Altera's MMU alt_mmu_va_space_create() function will create a huge array!!  Ensure your stack space is greater than 4K = 4096 bytes!
 #if MMU_ENABLE
 #define TTB_ATTRIB_ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
 static long unsigned int __attribute__ ((__section__("MMU_TTB"))) mmu_ttb[4096];  // This array is the MMU table.  It is placed at the specified linker section, aligned to 16KB, defined in the linker file
