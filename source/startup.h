@@ -34,8 +34,6 @@
 #ifndef STARTUP_H
 #define STARTUP_H
 
-#include <stdint.h>
-
 // We do not want cache in DEBUG mode
 #ifdef DEBUG
 	#ifndef CACHE_ENABLE
@@ -51,6 +49,11 @@
 	#ifndef MMU_ENABLE
 		#define MMU_ENABLE (1)
 	#endif
+#endif
+
+// This should match with your compiler/linker flag
+#ifndef NEON_ENABLE
+	#define NEON_ENABLE (1)
 #endif
 
 #if MMU_ENABLE

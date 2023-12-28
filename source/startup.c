@@ -71,6 +71,7 @@ void reset_handler(void){
 		"ORR r0, r0, #(0x3 << 20)                      \n"  // Setup bits to enable access permissions.  Undocumented Altera/Intel Cyclone V SoC vendor specific
 		"MCR p15, 0, r0, c1, c1, 2                     \n"  // Write NSACR
 
+#if NEON_ENABLE
 		// Enable permission and turn on NEON/VFP (FPU)
 		"MRC p15, 0, r0, c1, c0, 2                     \n"  // Read CPACR (Coprocessor Access Control Register)
 		"ORR r0, r0, #(0xf << 20)                      \n"  // Setup bits to enable access to NEON/VFP (Coprocessors 10 and 11)
@@ -78,6 +79,7 @@ void reset_handler(void){
 		"ISB                                           \n"  // Ensures CPACR write have completed before continuing
 		"MOV r0, #0x40000000                           \n"  // Setup bits to turn on the NEON/VFP (Advanced SIMD and floating-point extensions)
 		"VMSR fpexc, r0                                \n"  // Write FPEXC (Floating-Point Exception Control register)
+#endif
 
 		// Set Vector Base Address Register (VBAR)
 		"LDR r0, =__intc_interrupt_vector              \n"  // Register the specified vector table
@@ -102,13 +104,13 @@ void reset_handler(void){
 		"LDR r1, =0xffff                               \n"  // Value to write
 		"STR r1, [r0, #0xc]                            \n"  // Write to SCU Invalidate All register (0xfffec00c)
 
-	"#if CACHE_ENABLE                                  \n"
+#if CACHE_ENABLE
 		// Enable SCU
 		"LDR r0, =0xfffec000UL                         \n"  // Load SCU base register
 		"LDR r1, [r0, #0x0]                            \n"  // Read SCU register
 		"ORR r1, r1, #0x1                              \n"  // Set bit 0 (The Enable bit)
 		"STR r1, [r0, #0x0]                            \n"  // Write back modified value
-	"#endif                                            \n"
+#endif
 
 		"CPSIE if                                      \n"  // Unmask interrupts
 
@@ -125,19 +127,18 @@ void _socfpga_main(void) __attribute__ ((unused, alias("reset_handler")));  // A
 // MMU initialisations
 // ===================
 
+// *Note: Altera's MMU alt_mmu_va_space_create() function will create a local temporary MMU table array!!  Ensure your stack space is greater than 4096 bytes!
 #if MMU_ENABLE
-#define ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
-static uint32_t __attribute__ ((__section__("MMU_TTB"))) alt_pt_storage[4096];  // This is the actual MMU table, which is placed at specified section, aligned to 16KB, defined in the linker file
+#define TTB_ATTRIB_ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
+static long unsigned int __attribute__ ((__section__("MMU_TTB"))) mmu_ttb[4096];  // This array is the MMU table.  It is placed at the specified linker section, aligned to 16KB, defined in the linker file
 
-// Define a dummy alloc for Altera's function is overly complicated MMU function!
-static void *alt_pt_alloc(const size_t size, void *context){
-	return context;
+// Define a dummy memory alloc for Altera's MMU function
+static void *mmu_ttb_alloc(const size_t size, void *context){
+	return mmu_ttb;
 }
 
-// We do not want cache in DEBUG mode
-
 static void mmu_init(void){
-	uint32_t *ttb1 = NULL;
+	long unsigned int *ttb1 = NULL;
 
 	// Create MMU attributes (properties) only.
 	// This is passed to the MMU function telling it what entries to create, and fills them into the MMU table
@@ -169,8 +170,8 @@ static void mmu_init(void){
 	};
 
 	alt_mmu_init();
-	alt_mmu_va_space_storage_required(regions, ARRAY_SIZE(regions));
-	alt_mmu_va_space_create(&ttb1, regions, ARRAY_SIZE(regions), alt_pt_alloc, alt_pt_storage);
+	alt_mmu_va_space_storage_required(regions, TTB_ATTRIB_ARRAY_SIZE(regions));
+	alt_mmu_va_space_create(&ttb1, regions, TTB_ATTRIB_ARRAY_SIZE(regions), mmu_ttb_alloc, NULL);
 	alt_mmu_va_space_enable(ttb1);
 }
 #endif
