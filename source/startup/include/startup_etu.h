@@ -21,33 +21,52 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	SOFTWARE.
 
-	Version: 20231201
+	Version: 20231230
 
 	Bare-metal C startup initialisations for the Intel Cyclone V SoC (HPS), ARM Cortex-A9.
-	Mostly using HWLib.
+
+	L1_CACHE_ENABLE: 0 = disable L1 cache, 1 = disable, invalidate and enable L1 cache, 2 = do nothing
+	L2_CACHE_ENABLE: 0 = disable L2 cache, 1 = disable, invalidate and enable L2 cache, 2 = do nothing
 
 	References:
 		- Cyclone V SoC: Cyclone V Hard Processor System Technical Reference Manual
-		- MMU          : ARM Architecture Reference Manual ARMv7-A and ARMv7-R edition. Notable refs: B3.5.1 Short-descriptor translation table format descriptors
 */
 
-#ifndef STARTUP_H
-#define STARTUP_H
+#ifndef STARTUP_ETU_H
+#define STARTUP_ETU_H
 
 // We do not want cache in DEBUG mode
 #ifdef DEBUG
-	#ifndef CACHE_ENABLE
-		#define CACHE_ENABLE (0)
-	#endif
 	#ifndef MMU_ENABLE
 		#define MMU_ENABLE (0)
 	#endif
-#else
-	#ifndef CACHE_ENABLE
-		#define CACHE_ENABLE (1)
+	#ifndef SMP_COHERENCY_ENABLE
+		#define SMP_COHERENCY_ENABLE (0)
 	#endif
+	#ifndef L1_CACHE_ENABLE
+		#define L1_CACHE_ENABLE (0)
+	#endif
+	#ifndef L2_CACHE_ENABLE
+		#define L2_CACHE_ENABLE (0)
+	#endif
+	#ifndef SCU_ENABLE
+		#define SCU_ENABLE (0)
+	#endif
+#else
 	#ifndef MMU_ENABLE
-		#define MMU_ENABLE (1)
+		#define MMU_ENABLE (0)
+	#endif
+	#ifndef SMP_COHERENCY_ENABLE
+		#define SMP_COHERENCY_ENABLE (0)
+	#endif
+	#ifndef L1_CACHE_ENABLE
+		#define L1_CACHE_ENABLE (0)
+	#endif
+	#ifndef L2_CACHE_ENABLE
+		#define L2_CACHE_ENABLE (0)
+	#endif
+	#ifndef SCU_ENABLE
+		#define SCU_ENABLE (0)
 	#endif
 #endif
 

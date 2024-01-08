@@ -21,7 +21,7 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	SOFTWARE.
 
-	Version: 20231201
+	Version: 20231230
 
 	Bare-metal C startup initialisations for the Intel Cyclone V SoC (HPS), ARM Cortex-A9.
 	Mostly using HWLib.
@@ -31,11 +31,29 @@
 		- MMU          : ARM Architecture Reference Manual ARMv7-A and ARMv7-R edition. Notable refs: B3.5.1 Short-descriptor translation table format descriptors
 */
 
+#ifdef EXIT_TO_UBOOT
+
 #include "startup.h"
 #include "alt_cache.h"
 #include "alt_mmu.h"
+#include "alt_interrupt.h"
 
-#if MMU_ENABLE
+extern long unsigned int __bss_start__;  // Reference external symbol name from the linker file
+extern long unsigned int __bss_end__;    // Reference external symbol name from the linker file
+extern int main(int argc, char *const argv[]);
+
+void zero_bss(void){
+	// Zero fill .bss section.  The OS or std library normally does, else we have to do it
+	long unsigned int *dst = &__bss_start__;
+	while(dst < &__bss_end__) *dst++ = 0;  // Zero fill
+}
+
+// Initialise with non-zero value so that it is treated as initialised global variable and put into data section
+// Note, must use a non-zero value, other the compiler may optimise to uninitialised global variable
+int uboot_argc = 1;
+char **uboot_argv = (char **)1;
+
+#if(MMU_ENABLE)
 static void mmu_init(void);
 #endif
 
@@ -46,36 +64,35 @@ static void mmu_init(void);
 // Notes:
 // - Newlib will initialise the .bss section for us so no need to do it here
 // - In Altera's HWLib their vector table is named __intc_interrupt_vector, see alt_interrupt.c
-// - In Altera's HWLib their vector table sets _socfpga_main as the reset handler, see alt_interrupt.c
-void reset_handler(void){
-	__asm__(
-		"CPSID if                                      \n"  // Mask interrupts
+// - In Altera's HWLib, their vector table branches to _socfpga_main() as the reset handler, see alt_interrupt.c
+int reset_handler(int argc, char *const argv[]){
+	// Store the U-Boot passed in arguments because they will be clobbered (destroyed) by the initialisation code below
+	uboot_argc = argc;
+	uboot_argv = (char **)argv;
 
-		// Setup stack for each exception mode
-		// Note: When you call HWLib's interrupt init function the stacks will be change to a global variable array, and this setup will be dropped
-		"CPS #0x11                                     \n"
-		"LDR sp, =_FIQ_STACK_LIMIT                     \n"
-		"CPS #0x12                                     \n"
-		"LDR sp, =_IRQ_STACK_LIMIT                     \n"
-		"CPS #0x13                                     \n"
-		"LDR sp, =_SVC_STACK_LIMIT                     \n"
-		"CPS #0x17                                     \n"
-		"LDR sp, =_ABT_STACK_LIMIT                     \n"
-		"CPS #0x1B                                     \n"
-		"LDR sp, =_UND_STACK_LIMIT                     \n"
-		"CPS #0x1F                                     \n"
-		"LDR sp, =_SYS_STACK_LIMIT                     \n"
+	__asm__ volatile(
+		"CPSID if                                      \n"  // Mask interrupts
 	);
 
-	alt_cache_system_disable();                             // Disable L1 and L2 cache
+#if(L2_CACHE_ENABLE != 2)
+    // Disable L2 cache
+	alt_cache_l2_disable();
+	alt_cache_l2_parity_disable();
+	alt_cache_l2_prefetch_disable();
+	alt_cache_l2_uninit();
+#endif
 
-	__asm__(
+#if(L1_CACHE_ENABLE != 2)
+	alt_cache_l1_disable_all();                             // Disable L1 cache
+#endif
+
+	__asm__ volatile(
 		// Enable permissions
 		"MRC p15, 0, r0, c1, c1, 2                     \n"  // Read NSACR (Non-secure Access Control Register)
 		"ORR r0, r0, #(0x3 << 20)                      \n"  // Setup bits to enable access permissions.  Undocumented Altera/Intel Cyclone V SoC vendor specific
 		"MCR p15, 0, r0, c1, c1, 2                     \n"  // Write NSACR
 
-#if NEON_ENABLE
+#if(NEON_ENABLE)
 		// Enable permission and turn on NEON/VFP (FPU)
 		"MRC p15, 0, r0, c1, c0, 2                     \n"  // Read CPACR (Coprocessor Access Control Register)
 		"ORR r0, r0, #(0xf << 20)                      \n"  // Setup bits to enable access to NEON/VFP (Coprocessors 10 and 11)
@@ -84,31 +101,44 @@ void reset_handler(void){
 		"MOV r0, #0x40000000                           \n"  // Setup bits to turn on the NEON/VFP (Advanced SIMD and floating-point extensions)
 		"VMSR fpexc, r0                                \n"  // Write FPEXC (Floating-Point Exception Control register)
 #endif
-
-		// Set Vector Base Address Register (VBAR)
-		"LDR r0, =__intc_interrupt_vector              \n"  // Register the specified vector table
-		"MCR p15, 0, r0, c12, c0, 0                    \n"
 	);
 
-#if MMU_ENABLE
+#if(MMU_ENABLE)
 	mmu_init();                                             // Setup MMU table and enable MMU
 #endif
 
-#if CACHE_ENABLE
-	alt_cache_system_enable();                              // Enable and invalidate L1 and L2 cache
+#if(SMP_COHERENCY_ENABLE)
+	__asm__ volatile(
+		// Enable SMP cache coherence support, i.e. enables MMU TLB cache broadcast for multi-processors
+		"MRC p15, 0, r0, c1, c0, 1                     \n"  // Read ACTLR
+		"ORR r0, r0, #(0x1 << 6)                       \n"  // Set bit 6 to participate in SMP coherency
+		"ORR r0, r0, #(0x1 << 0)                       \n"  // Set bit 0 to enable maintenance broadcast
+		"MCR p15, 0, r0, c1, c0, 1                     \n"  // Write ACTLR
+	);
 #endif
 
-	__asm__(
+#if(L1_CACHE_ENABLE == 1)
+	alt_cache_l1_enable_all();                              // Enable and invalidate L1 cache
+#endif
+
+#if(L2_CACHE_ENABLE == 1)
+	alt_cache_l2_init();
+	alt_cache_l2_prefetch_enable();
+	alt_cache_l2_parity_enable();
+	alt_cache_l2_enable();                                  // Enable and invalidate L2 cache
+#endif
+
+	__asm__ volatile(
 		// =======================================
 		// Initialise the SCU (Snoop Control Unit)
 		// =======================================
 
+#if(SCU_ENABLE)
 		// Invalidate SCU
 		"LDR r0, =0xfffec000UL                         \n"  // Load SCU base register
 		"LDR r1, =0xffff                               \n"  // Value to write
 		"STR r1, [r0, #0xc]                            \n"  // Write to SCU Invalidate All register (0xfffec00c)
 
-#if CACHE_ENABLE
 		// Enable SCU
 		"LDR r0, =0xfffec000UL                         \n"  // Load SCU base register
 		"LDR r1, [r0, #0x0]                            \n"  // Read SCU register
@@ -117,24 +147,30 @@ void reset_handler(void){
 #endif
 
 		"CPSIE if                                      \n"  // Unmask interrupts
-
-		"BL _mainCRTStartup                            \n"  // Call C Run-Time library startup from newlib or libc, which will later call our main().  Alternatively, for newlib call BL _start (alias of the same function)
-
-	"_infinity_loop:                                   \n"  // Catch unexpected main() return
-		"B _infinity_loop                              \n"
 	);
+	zero_bss();                           // Since we are not calling newlib _startup() we will init the bss
+	return main(uboot_argc, uboot_argv);  // Branch to main().  When main() returns we will return to U-Boot
 }
 
-void _socfpga_main(void) __attribute__ ((unused, alias("reset_handler")));  // Alias Altera's HWLib reset handler to ours so it will be called on reset
+// =======================
+// Set HWLib reset handler
+// =======================
+// For exit to U-Boot we won't be using HWLib's vector, just setting this up to make it happy
+#if(ALT_INT_PROVISION_VECTOR_SUPPORT != 0)
+void hwlib_reset_handler(void){
+	reset_handler(0, 0);
+}
+void _socfpga_main(void) __attribute__((unused, alias("hwlib_reset_handler")));  // Alias Altera's HWLib reset handler to our function
+#endif
 
 // ===================
 // MMU initialisations
 // ===================
 
-// *Note: Altera's MMU alt_mmu_va_space_create() function will create a huge array!!  Ensure your stack space is greater than 4K = 4096 bytes!
-#if MMU_ENABLE
+// *Note: Altera's MMU alt_mmu_va_space_create() function will create a huge local array!!  Ensure your stack space is greater than 4K = 4096 bytes!
+#if(MMU_ENABLE)
 #define TTB_ATTRIB_ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
-static long unsigned int __attribute__ ((__section__("MMU_TTB"))) mmu_ttb[4096];  // This array is the MMU table.  It is placed at the specified linker section, aligned to 16KB, defined in the linker file
+static long unsigned int __attribute__((__section__("MMU_TTB"))) mmu_ttb[4096];  // This array is the MMU table.  It is placed at the specified linker section, aligned to 16KB, defined in the linker file
 
 // Define a dummy memory alloc for Altera's MMU function
 static void *mmu_ttb_alloc(const size_t size, void *context){
@@ -144,7 +180,7 @@ static void *mmu_ttb_alloc(const size_t size, void *context){
 static void mmu_init(void){
 	long unsigned int *ttb1 = NULL;
 
-	// Create MMU attributes (properties) only.
+	// Create MMU attributes (properties)
 	// This is passed to the MMU function telling it what entries to create, and fills them into the MMU table
 	// We only need multiple section entries (1 MB regions) of these 2 types
 	ALT_MMU_MEM_REGION_t regions[] = {
@@ -178,4 +214,6 @@ static void mmu_init(void){
 	alt_mmu_va_space_create(&ttb1, regions, TTB_ATTRIB_ARRAY_SIZE(regions), mmu_ttb_alloc, NULL);
 	alt_mmu_va_space_enable(ttb1);
 }
+#endif
+
 #endif

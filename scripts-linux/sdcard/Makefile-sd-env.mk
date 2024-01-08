@@ -1,5 +1,5 @@
 # This is free script released into the public domain.
-# GNU make file v20231220 created by Truong Hy.
+# GNU make file v20231226 created by Truong Hy.
 #
 # Prepares environment to support building an SD card image.
 
@@ -19,6 +19,8 @@ export SDENVFILE := $(BM_HOME_PATH)/scripts-env/env-sd.sh
 
 # Read environment file
 SDENV := $(strip $(file <$(SDENVFILE)))
+SDENV := $(subst #export$(SPACE),#export_,$(SDENV))
+SDENV := $(filter-out #export_%,$(SDENV))
 # Environment names
 SDENV01 := SDSZ
 SDENV02 := SDP1SZ
@@ -33,6 +35,9 @@ SDENV10 := SDP1FMT
 SDENV11 := SDP2FMT
 SDENV12 := SDP3FMT
 SDENV13 := SDP4FMT
+SDENV14 := SDUBBMARG1
+SDENV15 := SDUBBMARG2
+SDENV16 := SDUBBMARG3
 # Extract environment values and export them
 export SDSZ := $(filter-out $(SDENV01),$(subst =,$(SPACE),$(filter $(SDENV01)=%,$(SDENV))))
 export SDP1SZ := $(filter-out $(SDENV02),$(subst =,$(SPACE),$(filter $(SDENV02)=%,$(SDENV))))
@@ -47,6 +52,9 @@ export SDP1FMT := $(filter-out $(SDENV10),$(subst =,$(SPACE),$(filter $(SDENV10)
 export SDP2FMT := $(filter-out $(SDENV11),$(subst =,$(SPACE),$(filter $(SDENV11)=%,$(SDENV))))
 export SDP3FMT := $(filter-out $(SDENV12),$(subst =,$(SPACE),$(filter $(SDENV12)=%,$(SDENV))))
 export SDP4FMT := $(filter-out $(SDENV13),$(subst =,$(SPACE),$(filter $(SDENV13)=%,$(SDENV))))
+export SDUBBMARG1 := $(filter-out $(SDENV14),$(subst =,$(SPACE),$(filter $(SDENV14)=%,$(SDENV))))
+export SDUBBMARG2 := $(filter-out $(SDENV15),$(subst =,$(SPACE),$(filter $(SDENV15)=%,$(SDENV))))
+export SDUBBMARG3 := $(filter-out $(SDENV16),$(subst =,$(SPACE),$(filter $(SDENV16)=%,$(SDENV))))
 
 # Assumes there is only one a2 partition
 # Assumes there is only one FAT partition
@@ -113,4 +121,18 @@ export SDFATDEVPART := 0:4
 endif
 else
 export SDP4EXISTS := n
+endif
+
+ifneq (,$(SDUBBMARG1))
+UBOOT_SCRTXT_ARGS_STR := $(UBOOT_SCRTXT_ARGS_STR) $(SDUBBMARG1)
+endif
+ifneq (,$(SDUBBMARG2))
+UBOOT_SCRTXT_ARGS_STR := $(UBOOT_SCRTXT_ARGS_STR) $(SDUBBMARG2)
+endif
+ifneq (,$(SDUBBMARG3))
+UBOOT_SCRTXT_ARGS_STR := $(UBOOT_SCRTXT_ARGS_STR) $(SDUBBMARG3)
+endif
+ifneq (,$(UBOOT_SCRTXT_ARGS_STR))
+UBOOT_SCRTXT_ARGS_STR := $(strip $(UBOOT_SCRTXT_ARGS_STR))
+export UBOOT_SCRTXT_ARGS_STR)
 endif

@@ -36,9 +36,9 @@ if [ "$1" = "debug" ]; then SDBUILD=Debug; else SDBUILD=Release; fi
 
 # Settings
 SDBUILDPATH=${SD_OUT_PATH}/${SDBUILD}
-SDIMG=${SDBUILDPATH}/sd-out/${PROGRAM_NAME}.sd.img
-SDTMP=${SDBUILDPATH}/sd-out/${PROGRAM_NAME}.sd.~img
-SDPARTINFO=${SDBUILDPATH}/sd-out/${PROGRAM_NAME}.sd.sfdisk.txt
+SDIMG=${SDBUILDPATH}/sd-out/${SD_PROGRAM_NAME}.sd.img
+SDTMP=${SDBUILDPATH}/sd-out/${SD_PROGRAM_NAME}.sd.~img
+SDPARTINFO=${SDBUILDPATH}/sd-out/${SD_PROGRAM_NAME}.sd.sfdisk.txt
 # Source files
 SDP1PATH=${SDBUILDPATH}/sd-out/p1
 SDP2PATH=${SDBUILDPATH}/sd-out/p2

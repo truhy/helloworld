@@ -17,3 +17,7 @@ export SDP1FMT=vfat
 export SDP2FMT=raw
 export SDP3FMT=ext4
 export SDP4FMT=raw
+# U-Boot parameters to pass to the bare-metal program
+export SDUBBMARG1=red
+export SDUBBMARG2=green
+export SDUBBMARG3=blue

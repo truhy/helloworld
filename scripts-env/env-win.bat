@@ -10,8 +10,8 @@
 :: Bare-metal settings
 @SET BM_OUT_PATH=%SCRIPT_PATH%
 @SET BM_HOME_PATH=%SCRIPT_PATH%
-@SET BM_SRC_PATH=source
-@SET PROGRAM_NAME=helloworld
+@SET BM_SRC_PATH1=source
+@SET BM_PROGRAM_NAME1=helloworld
 
 :: Search path settings
 @SET path=%path%;%SCRIPT_PATH%\scripts-env;%SCRIPT_PATH%\scripts-win

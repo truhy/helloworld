@@ -5,4 +5,4 @@
 @ECHO make sd=1 ub=1    Build U-Boot ^& SD card image (release)
 @ECHO make clean        Delete all built files
 @ECHO make help         List of commands
-@ECHO run debug         Run elf using OpenOCD (debug)
+@ECHO runelf debug      Run elf using OpenOCD (debug)

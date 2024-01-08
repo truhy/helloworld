@@ -12,8 +12,8 @@ OPENOCD_PATH=~/devtools/xpack-openocd-0.12.0-2/bin
 # Bare-metal settings
 export BM_OUT_PATH=$SCRIPT_PATH
 export BM_HOME_PATH=$SCRIPT_PATH
-export BM_SRC_PATH=source
-export PROGRAM_NAME=helloworld
+export BM_SRC_PATH1=source
+export BM_PROGRAM_NAME1=helloworld
 
 # U-Boot settings
 export UBOOT_OUT_PATH=$SCRIPT_PATH
@@ -25,6 +25,7 @@ export CROSS_COMPILE=arm-none-eabi-
 
 # SD card image settings
 export SD_OUT_PATH=$SCRIPT_PATH
+export SD_PROGRAM_NAME=$BM_PROGRAM_NAME1
 
 # Search path settings
 export PATH=$PATH:$SCRIPT_PATH/scripts-env:$SCRIPT_PATH/scripts-linux

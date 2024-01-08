@@ -8,4 +8,4 @@ function cleanup {
 }
 trap cleanup EXIT
 
-./run.sh debug
+./runelf.sh debug

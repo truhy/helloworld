@@ -1,4 +1,4 @@
-@CALL run
+@CALL runelf debug
 @IF %errorlevel% NEQ 0 GOTO :err_handler
 
 @GOTO :end_of_script

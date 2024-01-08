@@ -7,14 +7,11 @@
 # Main dependencies: Bash, mkfs, dd, sfdisk, losetup, mount, umount
 
 # These variables are assumed to be set already
-ifndef BM_HOME_PATH
-$(error BM_HOME_PATH environment variable is not set)
-endif
 ifndef SD_OUT_PATH
 $(error SD_OUT_PATH environment variable is not set)
 endif
-ifndef PROGRAM_NAME
-$(error PROGRAM_NAME environment variable is not set)
+ifndef SD_PROGRAM_NAME
+$(error SD_PROGRAM_NAME environment variable is not set)
 endif
 
 # Export some SD card image environment variables
@@ -30,9 +27,9 @@ SD_SCRIPT := make-sd-tru.sh
 
 DBG_SDOUTPATH := $(SD_OUT_PATH)/Debug
 DBG_SDOUTSUBPATH := $(DBG_SDOUTPATH)/sd-out
-DBG_SDIMG := $(DBG_SDOUTSUBPATH)/$(PROGRAM_NAME).sd.img
-DBG_SDTMP := $(DBG_SDOUTSUBPATH)/$(PROGRAM_NAME).sd.~img
-DBG_SDPARTINFO := $(DBG_SDOUTSUBPATH)/$(PROGRAM_NAME).sd.sfdisk.txt
+DBG_SDIMG := $(DBG_SDOUTSUBPATH)/$(SD_PROGRAM_NAME).sd.img
+DBG_SDTMP := $(DBG_SDOUTSUBPATH)/$(SD_PROGRAM_NAME).sd.~img
+DBG_SDPARTINFO := $(DBG_SDOUTSUBPATH)/$(SD_PROGRAM_NAME).sd.sfdisk.txt
 DBG_SDP1PATH := $(DBG_SDOUTSUBPATH)/p1
 DBG_SDP2PATH := $(DBG_SDOUTSUBPATH)/p2
 DBG_SDP3PATH := $(DBG_SDOUTSUBPATH)/p3
@@ -44,9 +41,9 @@ DBG_SDP4FILES := $(wildcard $(DBG_SDP4PATH)/*)
 
 REL_SDOUTPATH := $(SD_OUT_PATH)/Release
 REL_SDOUTSUBPATH := $(REL_SDOUTPATH)/sd-out
-REL_SDIMG := $(REL_SDOUTSUBPATH)/$(PROGRAM_NAME).sd.img
-REL_SDTMP := $(REL_SDOUTSUBPATH)/$(PROGRAM_NAME).sd.~img
-REL_SDPARTINFO := $(REL_SDOUTSUBPATH)/$(PROGRAM_NAME).sd.sfdisk.txt
+REL_SDIMG := $(REL_SDOUTSUBPATH)/$(SD_PROGRAM_NAME).sd.img
+REL_SDTMP := $(REL_SDOUTSUBPATH)/$(SD_PROGRAM_NAME).sd.~img
+REL_SDPARTINFO := $(REL_SDOUTSUBPATH)/$(SD_PROGRAM_NAME).sd.sfdisk.txt
 REL_SDP1PATH := $(REL_SDOUTSUBPATH)/p1
 REL_SDP2PATH := $(REL_SDOUTSUBPATH)/p2
 REL_SDP3PATH := $(REL_SDOUTSUBPATH)/p3
