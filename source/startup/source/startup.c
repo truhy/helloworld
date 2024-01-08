@@ -85,7 +85,6 @@ void reset_handler(void){
 	__asm__ volatile(
 		"CPSID if                                      \n"  // Mask interrupts
 
-#ifndef EXIT_TO_UBOOT
 		// Setup stack for each exception mode
 		// Note: When you call HWLib's interrupt init function the stacks will be change to a global variable array, and this setup will be dropped
 		"CPS #0x11                                     \n"
@@ -100,7 +99,6 @@ void reset_handler(void){
 		"LDR sp, =_UND_STACK_LIMIT                     \n"
 		"CPS #0x1F                                     \n"
 		"LDR sp, =_SYS_STACK_LIMIT                     \n"
-#endif
 	);
 
 #if(L2_CACHE_ENABLE != 2)
