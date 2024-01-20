@@ -37,7 +37,6 @@
 #include "alt_cache.h"
 #include "alt_mmu.h"
 #include "alt_interrupt.h"
-#include "c5_uart.h"
 
 // Prototypes
 #if(MMU_ENABLE)
@@ -114,7 +113,7 @@ void __attribute__((naked)) reset_handler(int argc, char *const argv[]){
 #endif
 
 #if(L2_CACHE_ENABLE != 2)
-    // Disable L2 cache
+	// Disable L2 cache
 	alt_cache_l2_disable();
 	alt_cache_l2_parity_disable();
 	alt_cache_l2_prefetch_disable();
@@ -198,55 +197,6 @@ void __attribute__((naked)) reset_handler(int argc, char *const argv[]){
 		//"B _infinity_loop                              \n"
 	);
 }
-
-// =============
-// Reset handler
-// =============
-/*
-void __attribute__((naked)) reset_handler(int argc, char *const argv[]){
-	__asm__ volatile(
-		"CPSID if                                      \n"  // Mask interrupts
-
-		// Save U-Boot argc
-		"LDR r3, =uboot_argc                           \n"
-		"STR r0, [r3]                                  \n"
-
-		// Save U-Boot argv
-		"LDR r3, =uboot_argv                           \n"
-		"STR r1, [r3]                                  \n"
-
-		// Save U-Boot system stack pointer
-		"LDR r3, =uboot_sp                             \n"
-		"STR sp, [r3]                                  \n"
-
-		// Save U-Boot return address
-		"LDR r3, =uboot_lr                             \n"
-		"STR lr, [r3]                                  \n"
-
-		// Setup stack for each exception mode
-		// Note: When you call HWLib's interrupt init function the stacks will be change to a global variable array, and this setup will be dropped
-		"CPS #0x11                                     \n"
-		"LDR sp, =_FIQ_STACK_LIMIT                     \n"
-		"CPS #0x12                                     \n"
-		"LDR sp, =_IRQ_STACK_LIMIT                     \n"
-		"CPS #0x13                                     \n"
-		"LDR sp, =_SVC_STACK_LIMIT                     \n"
-		"CPS #0x17                                     \n"
-		"LDR sp, =_ABT_STACK_LIMIT                     \n"
-		"CPS #0x1B                                     \n"
-		"LDR sp, =_UND_STACK_LIMIT                     \n"
-		"CPS #0x1F                                     \n"
-		"LDR sp, =_SYS_STACK_LIMIT                     \n"
-
-		// Do higher level startup init
-		"BL startup_init                               \n"
-
-		"CPSIE if                                      \n"  // Unmask interrupts
-
-		"B _mainCRTStartup                             \n"  // Call C Run-Time library startup from newlib or libc, which will later call our main().  Alternatively, for newlib call BL _start (alias of the same function)
-	);
-}
-*/
 
 // =======================
 // Set HWLib reset handler
