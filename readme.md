@@ -2,8 +2,7 @@
 
 ## Overview
 
-This contains a basic "Hello, World!" bare-metal C program for the DE10-Nano
-development board.  Included is my makefile script (actually a set of scripts) to build the C sources and SD card image.
+This contains a basic "Hello, World!" bare-metal C program for the DE10-Nano development board.  Included is my makefile script (actually a set of scripts) to build the C sources and SD card image.
 
 ## Build requirements
 
