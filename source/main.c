@@ -22,7 +22,7 @@
 	SOFTWARE.
 
 	Version: 20240120
-	Target: ARM Cortex-A9 on the DE10-Nano development board
+	Target : ARM Cortex-A9 on the DE10-Nano development board
 
 	A basic "Hello, World!" bare-metal C program for the DE10-Nano
 	development board.  It is for the SoC (aka HPS) part of the FPGA so it
