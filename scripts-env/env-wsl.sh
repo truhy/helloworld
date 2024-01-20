@@ -16,7 +16,7 @@ export BM_SRC_PATH1=source
 export BM_PROGRAM_NAME1=helloworld
 
 # U-Boot settings
-export UBOOT_OUT_PATH=~/hw-out
+export UBOOT_OUT_PATH=~/sw-out
 export UBOOT_ZIP=~/devtools/u-boot-2022.10.zip
 export UBOOT_DEFCONFIG=socfpga_de10_nano_defconfig
 export UBOOT_DTS=socfpga_cyclone5_de10_nano
@@ -24,7 +24,7 @@ export ARCH=arm
 export CROSS_COMPILE=arm-none-eabi-
 
 # SD card image settings
-export SD_OUT_PATH=~/hw-out
+export SD_OUT_PATH=~/sw-out
 export SD_PROGRAM_NAME=$BM_PROGRAM_NAME1
 
 # Search path settings

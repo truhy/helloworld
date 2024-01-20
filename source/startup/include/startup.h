@@ -21,7 +21,7 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	SOFTWARE.
 
-	Version: 20231230
+	Version: 20240120
 
 	Bare-metal C startup initialisations for the Intel Cyclone V SoC (HPS), ARM Cortex-A9.
 
@@ -38,6 +38,9 @@
 
 // We do not want cache in DEBUG mode
 #ifdef DEBUG
+	#ifndef CLEAN_CACHE
+		#define CLEAN_CACHE (0)
+	#endif
 	#ifndef MMU_ENABLE
 		#define MMU_ENABLE (0)
 	#endif
@@ -54,6 +57,9 @@
 		#define SCU_ENABLE (0)
 	#endif
 #else
+	#ifndef CLEAN_CACHE
+		#define CLEAN_CACHE (1)
+	#endif
 	#ifndef MMU_ENABLE
 		#define MMU_ENABLE (1)
 	#endif

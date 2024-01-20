@@ -1,5 +1,5 @@
 # This is free script released into the public domain.
-# GNU make file v20231220 created by Truong Hy.
+# GNU make file v20240120 created by Truong Hy.
 #
 # Prepares the U-Boot source files for building U-Boot for the Intel Cyclone V SoC:
 #   - uncompress U-Boot source
@@ -36,10 +36,10 @@ REL_UBOOT_SRC_PATH := $(REL_UBOOT_OUT_PATH)/u-boot
 # ================================
 # U-Boot replacment modified files
 # ================================
-DBG_SRC_DEFCONFIG := Debug/u-boot-2022.10-patch/socfpga_de10_nano_defconfig
-DBG_DST_DEFCONFIG := $(DBG_UBOOT_SRC_PATH)/configs/socfpga_de10_nano_defconfig
-REL_SRC_DEFCONFIG := Release/u-boot-2022.10-patch/socfpga_de10_nano_defconfig
-REL_DST_DEFCONFIG := $(REL_UBOOT_SRC_PATH)/configs/socfpga_de10_nano_defconfig
+DBG_SRC_FILE1 := Debug/u-boot-2022.10-patch/socfpga_de10_nano_defconfig
+DBG_DST_FILE1 := $(DBG_UBOOT_SRC_PATH)/configs/socfpga_de10_nano_defconfig
+REL_SRC_FILE1 := Release/u-boot-2022.10-patch/socfpga_de10_nano_defconfig
+REL_DST_FILE1 := $(REL_UBOOT_SRC_PATH)/configs/socfpga_de10_nano_defconfig
 
 # ============
 # BSP settings
@@ -87,7 +87,7 @@ clean: clean1
 # Release rules
 # =============
 
-release: $(REL_DST_DEFCONFIG) $(REL_UBOOT_QTS_PATH)/pll_config.h
+release: $(REL_DST_FILE1) $(REL_UBOOT_QTS_PATH)/pll_config.h
 
 # Uncompress U-Boot source
 $(REL_UBOOT_SRC_PATH)/Makefile:
@@ -101,8 +101,8 @@ $(REL_UBOOT_SRC_DUMMY): $(REL_UBOOT_SRC_PATH)/Makefile
 	@echo "U-Boot source: $(UBOOT_ZIP)" > $(REL_UBOOT_SRC_DUMMY)
 
 # Apply modified files
-$(REL_DST_DEFCONFIG): $(REL_UBOOT_SRC_DUMMY)
-	cp -f $(REL_SRC_DEFCONFIG) $(REL_DST_DEFCONFIG)
+$(REL_DST_FILE1): $(REL_UBOOT_SRC_DUMMY)
+	cp -f $(REL_SRC_FILE1) $(REL_DST_FILE1)
 
 # Apply BSP files
 $(REL_UBOOT_QTS_PATH)/pll_config.h: $(REL_UBOOT_SRC_DUMMY) $(HANDOFF)/hps.xml
@@ -112,7 +112,7 @@ $(REL_UBOOT_QTS_PATH)/pll_config.h: $(REL_UBOOT_SRC_DUMMY) $(HANDOFF)/hps.xml
 # Debug rules
 # ===========
 
-debug: $(DBG_DST_DEFCONFIG) $(DBG_UBOOT_QTS_PATH)/pll_config.h
+debug: $(DBG_DST_FILE1) $(DBG_UBOOT_QTS_PATH)/pll_config.h
 
 # Uncompress U-Boot source
 $(DBG_UBOOT_SRC_PATH)/Makefile:
@@ -126,8 +126,8 @@ $(DBG_UBOOT_SRC_DUMMY): $(DBG_UBOOT_SRC_PATH)/Makefile
 	@echo "U-Boot source: $(UBOOT_ZIP)" > $(DBG_UBOOT_SRC_DUMMY)
 
 # Apply modified files
-$(DBG_DST_DEFCONFIG): $(DBG_UBOOT_SRC_DUMMY)
-	cp -f $(DBG_SRC_DEFCONFIG) $(DBG_DST_DEFCONFIG)
+$(DBG_DST_FILE1): $(DBG_UBOOT_SRC_DUMMY)
+	cp -f $(DBG_SRC_FILE1) $(DBG_DST_FILE1)
 
 # Apply BSP files
 $(DBG_UBOOT_QTS_PATH)/pll_config.h: $(DBG_UBOOT_SRC_DUMMY) $(HANDOFF)/hps.xml

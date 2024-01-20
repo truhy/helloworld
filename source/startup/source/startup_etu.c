@@ -21,7 +21,7 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	SOFTWARE.
 
-	Version: 20231230
+	Version: 20240120
 
 	Bare-metal C startup initialisations for the Intel Cyclone V SoC (HPS), ARM Cortex-A9.
 	Mostly using HWLib.
@@ -33,29 +33,29 @@
 
 #ifdef EXIT_TO_UBOOT
 
-#include "startup.h"
+#include "startup_etu.h"
 #include "alt_cache.h"
 #include "alt_mmu.h"
 #include "alt_interrupt.h"
+#include "c5_uart.h"
 
-extern long unsigned int __bss_start__;  // Reference external symbol name from the linker file
-extern long unsigned int __bss_end__;    // Reference external symbol name from the linker file
-extern int main(int argc, char *const argv[]);
-
-void zero_bss(void){
-	// Zero fill .bss section.  The OS or std library normally does, else we have to do it
-	long unsigned int *dst = &__bss_start__;
-	while(dst < &__bss_end__) *dst++ = 0;  // Zero fill
-}
-
-// Initialise with non-zero value so that it is treated as initialised global variable and put into data section
-// Note, must use a non-zero value, other the compiler may optimise to uninitialised global variable
-int uboot_argc = 1;
-char **uboot_argv = (char **)1;
-
+// Prototypes
 #if(MMU_ENABLE)
 static void mmu_init(void);
 #endif
+
+// ===============================================
+// Global variables for returning back into U-Boot
+// ===============================================
+
+// Initialised global variables for storing startup values to support U-Boot
+// Note, we want them inside the .data section so that our values set in the
+// reset handler will not be zeroed out.  Normally, they would be placed into
+// the .bss section as uninitialised variables, which would be zeroed filled.
+long unsigned int uboot_lr __attribute__((__section__(".data")));
+long unsigned int uboot_sp __attribute__((__section__(".data")));
+int uboot_argc             __attribute__((__section__(".data")));
+char **uboot_argv          __attribute__((__section__(".data")));
 
 // =============
 // Reset handler
@@ -65,14 +65,53 @@ static void mmu_init(void);
 // - Newlib will initialise the .bss section for us so no need to do it here
 // - In Altera's HWLib their vector table is named __intc_interrupt_vector, see alt_interrupt.c
 // - In Altera's HWLib, their vector table branches to _socfpga_main() as the reset handler, see alt_interrupt.c
-int reset_handler(int argc, char *const argv[]){
-	// Store the U-Boot passed in arguments because they will be clobbered (destroyed) by the initialisation code below
-	uboot_argc = argc;
-	uboot_argv = (char **)argv;
+void __attribute__((naked)) reset_handler(int argc, char *const argv[]){
+	//uboot_argc = argc;
+	//uboot_argv = (char **)argv;
 
 	__asm__ volatile(
 		"CPSID if                                      \n"  // Mask interrupts
+
+		// Save U-Boot argc
+		"LDR r3, =uboot_argc                           \n"
+		"STR r0, [r3]                                  \n"
+
+		// Save U-Boot argv
+		"LDR r3, =uboot_argv                           \n"
+		"STR r1, [r3]                                  \n"
+
+		// Save U-Boot system stack pointer
+		"LDR r3, =uboot_sp                             \n"
+		"STR sp, [r3]                                  \n"
+
+		// Save U-Boot return address
+		"LDR r3, =uboot_lr                             \n"
+		"STR lr, [r3]                                  \n"
+
+		// Setup stack for each exception mode
+		// Note: When you call HWLib's interrupt init function the stacks will be change to a global variable array, and this setup will be dropped
+		"CPS #0x11                                     \n"
+		"LDR sp, =_FIQ_STACK_LIMIT                     \n"
+		"CPS #0x12                                     \n"
+		"LDR sp, =_IRQ_STACK_LIMIT                     \n"
+		"CPS #0x13                                     \n"
+		"LDR sp, =_SVC_STACK_LIMIT                     \n"
+		"CPS #0x17                                     \n"
+		"LDR sp, =_ABT_STACK_LIMIT                     \n"
+		"CPS #0x1B                                     \n"
+		"LDR sp, =_UND_STACK_LIMIT                     \n"
+		"CPS #0x1F                                     \n"
+		"LDR sp, =_SYS_STACK_LIMIT                     \n"
 	);
+
+#if(CLEAN_CACHE)
+	// Since we are starting from U-Boot which may have the cache enabled,
+	// loaded file(s) and some global variables may be cached and stay dirty.
+	// Let's make sure that all dirty lines are written back into memory, in
+	// case cache settings are changed later on
+	alt_cache_l1_data_clean_all();
+	alt_cache_l2_clean_all();
+#endif
 
 #if(L2_CACHE_ENABLE != 2)
     // Disable L2 cache
@@ -91,8 +130,10 @@ int reset_handler(int argc, char *const argv[]){
 		"MRC p15, 0, r0, c1, c1, 2                     \n"  // Read NSACR (Non-secure Access Control Register)
 		"ORR r0, r0, #(0x3 << 20)                      \n"  // Setup bits to enable access permissions.  Undocumented Altera/Intel Cyclone V SoC vendor specific
 		"MCR p15, 0, r0, c1, c1, 2                     \n"  // Write NSACR
+	);
 
 #if(NEON_ENABLE)
+	__asm__ volatile(
 		// Enable permission and turn on NEON/VFP (FPU)
 		"MRC p15, 0, r0, c1, c0, 2                     \n"  // Read CPACR (Coprocessor Access Control Register)
 		"ORR r0, r0, #(0xf << 20)                      \n"  // Setup bits to enable access to NEON/VFP (Coprocessors 10 and 11)
@@ -100,8 +141,8 @@ int reset_handler(int argc, char *const argv[]){
 		"ISB                                           \n"  // Ensures CPACR write have completed before continuing
 		"MOV r0, #0x40000000                           \n"  // Setup bits to turn on the NEON/VFP (Advanced SIMD and floating-point extensions)
 		"VMSR fpexc, r0                                \n"  // Write FPEXC (Floating-Point Exception Control register)
-#endif
 	);
+#endif
 
 #if(MMU_ENABLE)
 	mmu_init();                                             // Setup MMU table and enable MMU
@@ -109,7 +150,7 @@ int reset_handler(int argc, char *const argv[]){
 
 #if(SMP_COHERENCY_ENABLE)
 	__asm__ volatile(
-		// Enable SMP cache coherence support, i.e. enables MMU TLB cache broadcast for multi-processors
+		// Enable SMP cache coherency support, i.e. enables MMU TLB cache broadcast for multi-processors
 		"MRC p15, 0, r0, c1, c0, 1                     \n"  // Read ACTLR
 		"ORR r0, r0, #(0x1 << 6)                       \n"  // Set bit 6 to participate in SMP coherency
 		"ORR r0, r0, #(0x1 << 0)                       \n"  // Set bit 0 to enable maintenance broadcast
@@ -128,12 +169,12 @@ int reset_handler(int argc, char *const argv[]){
 	alt_cache_l2_enable();                                  // Enable and invalidate L2 cache
 #endif
 
+#if(SCU_ENABLE)
 	__asm__ volatile(
 		// =======================================
 		// Initialise the SCU (Snoop Control Unit)
 		// =======================================
 
-#if(SCU_ENABLE)
 		// Invalidate SCU
 		"LDR r0, =0xfffec000UL                         \n"  // Load SCU base register
 		"LDR r1, =0xffff                               \n"  // Value to write
@@ -144,17 +185,73 @@ int reset_handler(int argc, char *const argv[]){
 		"LDR r1, [r0, #0x0]                            \n"  // Read SCU register
 		"ORR r1, r1, #0x1                              \n"  // Set bit 0 (The Enable bit)
 		"STR r1, [r0, #0x0]                            \n"  // Write back modified value
+	);
 #endif
 
+	__asm__ volatile(
 		"CPSIE if                                      \n"  // Unmask interrupts
+
+		"B _mainCRTStartup                             \n"  // Call C Run-Time library startup from newlib or libc, which will later call our main().  Alternatively, for newlib call BL _start (alias of the same function)
+		//"BL _mainCRTStartup                            \n"  // Call C Run-Time library startup from newlib or libc, which will later call our main().  Alternatively, for newlib call BL _start (alias of the same function)
+		// We don't expect the above to return
+		//"_infinity_loop:                               \n"  // Catch unexpected main() return
+		//"B _infinity_loop                              \n"
 	);
-	zero_bss();                           // Since we are not calling newlib _startup() we will init the bss
-	return main(uboot_argc, uboot_argv);  // Branch to main().  When main() returns we will return to U-Boot
 }
+
+// =============
+// Reset handler
+// =============
+/*
+void __attribute__((naked)) reset_handler(int argc, char *const argv[]){
+	__asm__ volatile(
+		"CPSID if                                      \n"  // Mask interrupts
+
+		// Save U-Boot argc
+		"LDR r3, =uboot_argc                           \n"
+		"STR r0, [r3]                                  \n"
+
+		// Save U-Boot argv
+		"LDR r3, =uboot_argv                           \n"
+		"STR r1, [r3]                                  \n"
+
+		// Save U-Boot system stack pointer
+		"LDR r3, =uboot_sp                             \n"
+		"STR sp, [r3]                                  \n"
+
+		// Save U-Boot return address
+		"LDR r3, =uboot_lr                             \n"
+		"STR lr, [r3]                                  \n"
+
+		// Setup stack for each exception mode
+		// Note: When you call HWLib's interrupt init function the stacks will be change to a global variable array, and this setup will be dropped
+		"CPS #0x11                                     \n"
+		"LDR sp, =_FIQ_STACK_LIMIT                     \n"
+		"CPS #0x12                                     \n"
+		"LDR sp, =_IRQ_STACK_LIMIT                     \n"
+		"CPS #0x13                                     \n"
+		"LDR sp, =_SVC_STACK_LIMIT                     \n"
+		"CPS #0x17                                     \n"
+		"LDR sp, =_ABT_STACK_LIMIT                     \n"
+		"CPS #0x1B                                     \n"
+		"LDR sp, =_UND_STACK_LIMIT                     \n"
+		"CPS #0x1F                                     \n"
+		"LDR sp, =_SYS_STACK_LIMIT                     \n"
+
+		// Do higher level startup init
+		"BL startup_init                               \n"
+
+		"CPSIE if                                      \n"  // Unmask interrupts
+
+		"B _mainCRTStartup                             \n"  // Call C Run-Time library startup from newlib or libc, which will later call our main().  Alternatively, for newlib call BL _start (alias of the same function)
+	);
+}
+*/
 
 // =======================
 // Set HWLib reset handler
 // =======================
+
 // For exit to U-Boot we won't be using HWLib's vector, just setting this up to make it happy
 #if(ALT_INT_PROVISION_VECTOR_SUPPORT != 0)
 void hwlib_reset_handler(void){
@@ -162,6 +259,15 @@ void hwlib_reset_handler(void){
 }
 void _socfpga_main(void) __attribute__((unused, alias("hwlib_reset_handler")));  // Alias Altera's HWLib reset handler to our function
 #endif
+
+// =============================
+// Override newlib _stack_init()
+// =============================
+
+// This makes newlib setup only the system stack
+void _stack_init(void){
+	return;
+}
 
 // ===================
 // MMU initialisations

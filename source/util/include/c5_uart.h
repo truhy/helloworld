@@ -48,5 +48,7 @@
 void c5_uart_wait_empty(uint32_t uart_base_addr);
 void c5_uart_write_str(uint32_t uart_base_addr, const char *str, uint32_t len);
 void c5_uart_write_char(uint32_t uart_base_addr, const char c);
+void c5_uart_write_hex_nibble(uint32_t uart_base_addr, unsigned char nibble);
+void c5_uart_write_inthex(uint32_t uart_base_addr, int num, unsigned int bits);
 
 #endif

@@ -21,7 +21,7 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	SOFTWARE.
 
-	Version: 20231230
+	Version: 20240120
 
 	Bare-metal C startup initialisations for the Intel Cyclone V SoC (HPS), ARM Cortex-A9.
 	Mostly using HWLib.
@@ -50,7 +50,7 @@ void fiq_handler(void)   __attribute__((weak, alias("default_handler")));
 
 // Vector table, placed at specified linker section
 __asm__(
-".section _vectors, \"ax\"                          \n"
+".section vectors, \"ax\"                          \n"
 ".global _vectbl                                   \n"
 "_vectbl:                                          \n"
 	"LDR pc, =reset_handler                        \n"
@@ -81,7 +81,7 @@ static void mmu_init(void);
 // - Newlib will initialise the .bss section for us so no need to do it here
 // - In Altera's HWLib their vector table is named __intc_interrupt_vector, see alt_interrupt.c
 // - In Altera's HWLib, their vector table branches to _socfpga_main() as the reset handler, see alt_interrupt.c
-void reset_handler(void){
+void __attribute__((naked)) reset_handler(void){
 	__asm__ volatile(
 		"CPSID if                                      \n"  // Mask interrupts
 
@@ -101,6 +101,15 @@ void reset_handler(void){
 		"LDR sp, =_SYS_STACK_LIMIT                     \n"
 	);
 
+#if(CLEAN_CACHE)
+	// Since we are starting from U-Boot which may have the cache enabled,
+	// loaded file(s) and some global variables may be cached and stay dirty.
+	// Let's make sure that all dirty lines are written back into memory, in
+	// case cache settings are changed later on
+	alt_cache_l1_data_clean_all();
+	alt_cache_l2_clean_all();
+#endif
+
 #if(L2_CACHE_ENABLE != 2)
     // Disable L2 cache
 	alt_cache_l2_disable();
@@ -118,8 +127,10 @@ void reset_handler(void){
 		"MRC p15, 0, r0, c1, c1, 2                     \n"  // Read NSACR (Non-secure Access Control Register)
 		"ORR r0, r0, #(0x3 << 20)                      \n"  // Setup bits to enable access permissions.  Undocumented Altera/Intel Cyclone V SoC vendor specific
 		"MCR p15, 0, r0, c1, c1, 2                     \n"  // Write NSACR
+	);
 
 #if(NEON_ENABLE)
+	__asm__ volatile(
 		// Enable permission and turn on NEON/VFP (FPU)
 		"MRC p15, 0, r0, c1, c0, 2                     \n"  // Read CPACR (Coprocessor Access Control Register)
 		"ORR r0, r0, #(0xf << 20)                      \n"  // Setup bits to enable access to NEON/VFP (Coprocessors 10 and 11)
@@ -127,18 +138,22 @@ void reset_handler(void){
 		"ISB                                           \n"  // Ensures CPACR write have completed before continuing
 		"MOV r0, #0x40000000                           \n"  // Setup bits to turn on the NEON/VFP (Advanced SIMD and floating-point extensions)
 		"VMSR fpexc, r0                                \n"  // Write FPEXC (Floating-Point Exception Control register)
+	);
 #endif
 
 #if(ALT_INT_PROVISION_VECTOR_SUPPORT == 0)
+	__asm__ volatile(
 		// Set Vector Base Address Register (VBAR)
 		"LDR r0, =_vectbl                              \n"  // Register our vector table
 		"MCR p15, 0, r0, c12, c0, 0                    \n"
+	);
 #else
+	__asm__ volatile(
 		// Set Vector Base Address Register (VBAR)
 		"LDR r0, =__intc_interrupt_vector              \n"  // Register HWLib vector table
 		"MCR p15, 0, r0, c12, c0, 0                    \n"
-#endif
 	);
+#endif
 
 #if(MMU_ENABLE)
 	mmu_init();                                             // Setup MMU table and enable MMU
@@ -146,7 +161,7 @@ void reset_handler(void){
 
 #if(SMP_COHERENCY_ENABLE)
 	__asm__ volatile(
-		// Enable SMP cache coherence support, i.e. enables MMU TLB cache broadcast for multi-processors
+		// Enable SMP cache coherency support, i.e. enables MMU TLB cache broadcast for multi-processors
 		"MRC p15, 0, r0, c1, c0, 1                     \n"  // Read ACTLR
 		"ORR r0, r0, #(0x1 << 6)                       \n"  // Set bit 6 to participate in SMP coherency
 		"ORR r0, r0, #(0x1 << 0)                       \n"  // Set bit 0 to enable maintenance broadcast
@@ -165,12 +180,12 @@ void reset_handler(void){
 	alt_cache_l2_enable();                                  // Enable and invalidate L2 cache
 #endif
 
+#if(SCU_ENABLE)
 	__asm__ volatile(
 		// =======================================
 		// Initialise the SCU (Snoop Control Unit)
 		// =======================================
 
-#if(SCU_ENABLE)
 		// Invalidate SCU
 		"LDR r0, =0xfffec000UL                         \n"  // Load SCU base register
 		"LDR r1, =0xffff                               \n"  // Value to write
@@ -181,12 +196,15 @@ void reset_handler(void){
 		"LDR r1, [r0, #0x0]                            \n"  // Read SCU register
 		"ORR r1, r1, #0x1                              \n"  // Set bit 0 (The Enable bit)
 		"STR r1, [r0, #0x0]                            \n"  // Write back modified value
+
+	);
 #endif
 
+	__asm__ volatile(
 		"CPSIE if                                      \n"  // Unmask interrupts
 
-		"BL _mainCRTStartup                            \n"  // Call C Run-Time library startup from newlib or libc, which will later call our main().  Alternatively, for newlib call BL _start (alias of the same function)
-
+		"B _mainCRTStartup                             \n"  // Call C Run-Time library startup from newlib or libc, which will later call our main().  Alternatively, for newlib call BL _start (alias of the same function)
+		//"BL _mainCRTStartup                            \n"  // Call C Run-Time library startup from newlib or libc, which will later call our main().  Alternatively, for newlib call BL _start (alias of the same function)
 		// We don't expect the above to return
 		//"_infinity_loop:                               \n"  // Catch unexpected main() return
 		//"B _infinity_loop                              \n"
@@ -200,6 +218,15 @@ void reset_handler(void){
 #if(ALT_INT_PROVISION_VECTOR_SUPPORT != 0)
 void _socfpga_main(void) __attribute__((unused, alias("reset_handler")));  // Alias Altera's HWLib reset handler to our function
 #endif
+
+// =============================
+// Override newlib _stack_init()
+// =============================
+
+// This makes newlib setup only the system stack
+void _stack_init(void){
+	return;
+}
 
 // ===================
 // MMU initialisations

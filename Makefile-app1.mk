@@ -1,5 +1,5 @@
 # This is free script released into the public domain.
-# GNU make file v20231230 created by Truong Hy.
+# GNU make file v20240120 created by Truong Hy.
 #
 # Builds bare-metal source for the Intel Cyclone V SoC.
 # Depending on the options it will output the following application files:
@@ -87,7 +87,11 @@ INCS := \
 	-I$(BM_SRC_PATH1)/util/include
 
 # The linker script to use
+ifeq ($(etu),1)
+LINKER_SCRIPT := $(BM_SRC_PATH1)/ldscript/tru_c5_ddr_etu.ld
+else
 LINKER_SCRIPT := $(BM_SRC_PATH1)/ldscript/tru_c5_ddr.ld
+endif
 
 # =========================================
 # Common linker and compiler build settings
@@ -274,16 +278,16 @@ help:
 	@echo "Usage:"
 	@echo "  make [targets] [options]"
 	@echo ""
-	@echo "targets:"
-	@echo "  release       build elf Release (default)"
-	@echo "  debug         build elf Debug"
-	@echo "  clean         delete all built files"
-	@echo "  cleantemp     clean except target files"
-	@echo "options to use with target:"
-	@echo "  semi=1        use Semihosting"
-	@echo "  etu=1         elf exit to U-Boot"
-	@echo "  bin=1         outputs binary from the elf"
-	@echo "  uimg=1        outputs U-Boot image from the binary"
+	@echo "Targets:"
+	@echo "  release       Build elf Release (default)"
+	@echo "  debug         Build elf Debug"
+	@echo "  clean         Delete all built files"
+	@echo "  cleantemp     Clean except target files"
+	@echo "Options to use with target:"
+	@echo "  semi=1        Use Semihosting"
+	@echo "  etu=1         Elf exit to U-Boot"
+	@echo "  bin=1         Outputs binary from the elf"
+	@echo "  uimg=1        Outputs U-Boot image from the binary"
 
 # ===========
 # Clean rules

@@ -21,7 +21,7 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	SOFTWARE.
 
-	Version: 20241230
+	Version: 20240120
 	Target: ARM Cortex-A9 on the DE10-Nano development board
 
 	A basic "Hello, World!" bare-metal C program for the DE10-Nano
@@ -30,12 +30,20 @@
 	Standard, Arrow SoCKit, etc.
 */
 
+
 #include "c5_uart.h"
 #include "tru_logger.h"
 #include <string.h>
 
 #ifdef SEMIHOSTING
 	extern void initialise_monitor_handles(void);  // Reference function header from the external Semihosting library
+#endif
+
+#ifdef EXIT_TO_UBOOT
+	extern long unsigned int uboot_lr;
+	extern long unsigned int uboot_sp;
+	extern int uboot_argc;
+	extern char **uboot_argv;
 #endif
 
 // =============================
@@ -72,27 +80,13 @@ const char *messages[] = {
 	"Exiting application..\r\n"
 };
 
-void tx_hex_nibble(unsigned char nibble){
-	if(nibble > 9){
-		c5_uart_write_char(C5_UART0_BASE_ADDR, (char)(nibble + 97U));  // Convert to ASCII character
-	}else{
-		c5_uart_write_char(C5_UART0_BASE_ADDR, (char)(nibble + 48U));  // Convert to ASCII character
-	}
-}
-
-void tx_int_as_hex(int num, unsigned int bits){
-	for(unsigned int i = bits; i; i -= 4){
-		tx_hex_nibble((unsigned char)(num >> (i - 4) & 0xf));
-	}
-}
-
 // Transmit CLI arguments
 void tx_cli_args(int argc, char *const argv[]){
 	c5_uart_write_str(C5_UART0_BASE_ADDR, messages[MSG_INPUTS], strlen(messages[MSG_INPUTS]));
 
 	// Transmit input arguments count from U-Boot
 	c5_uart_write_str(C5_UART0_BASE_ADDR, messages[MSG_ARGC], strlen(messages[MSG_ARGC]));
-	tx_int_as_hex(argc, 32);
+	c5_uart_write_inthex(C5_UART0_BASE_ADDR, argc, 32);
 	c5_uart_write_str(C5_UART0_BASE_ADDR, messages[MSG_NEWLINE], strlen(messages[MSG_NEWLINE]));
 
 	if(argc){
@@ -113,7 +107,8 @@ int main(int argc, char *const argv[]){
 	#endif
 
 #ifdef EXIT_TO_UBOOT
-	tx_cli_args(argc, argv);
+	//tx_cli_args(argc, argv);
+	tx_cli_args(uboot_argc, uboot_argv);
 	tx_hello();
 	c5_uart_write_str(C5_UART0_BASE_ADDR, messages[MSG_EXIT], strlen(messages[MSG_EXIT]));
 	c5_uart_wait_empty(C5_UART0_BASE_ADDR);  // Before returning to U-Boot, we will wait for the UART to empty out
@@ -124,10 +119,28 @@ int main(int argc, char *const argv[]){
 	return 0xa9;
 }
 
-#ifndef EXIT_TO_UBOOT
+// Exit to U-Boot
+void __attribute__((naked)) etu(int rc){
+	__asm__(
+		// Restore system stack pointer
+		"LDR r3, =uboot_sp \n"
+		"LDR sp, [r3]      \n"
+
+		// Restore return address
+		"LDR r3, =uboot_lr \n"
+		"LDR lr, [r3]      \n"
+
+		// Return to U-Boot
+		"BX lr             \n"
+	);
+}
+
+// Override newlib _exit()
 void __attribute__((noreturn)) _exit(int status){
-	// Newlib _exit()
+#ifdef EXIT_TO_UBOOT
+	etu(status);
+#endif
+
 	//DEBUG_PRINTF("DEBUG: Starting infinity loop"_NL);
 	while(1);
 }
-#endif

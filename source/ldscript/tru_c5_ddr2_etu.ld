@@ -2,9 +2,9 @@ OUTPUT_FORMAT("elf32-littlearm", "elf32-bigarm", "elf32-littlearm")
 OUTPUT_ARCH(arm)
 ENTRY(reset_handler)
 
-/* _RAM_BASE       = 0x0; */          /* For making a program that starts from beginning of DDR-3 SDRAM with lower 1MB address remapped */
-_RAM_BASE       = 0x1000;             /* For making a program that can be loaded in the U-Boot console and run with go command. Note: U-Boot console has some reserved memories that perhaps cannot be used, e.g. 0x0-0xfff (see with bdinfo command) */
-_RAM_SIZE       = 1024M - _RAM_BASE;  /* DDR3 SDRAM size of this app */
+/* _RAM_BASE       = 0x0; */   /* For making a program that starts from beginning of DDR-3 SDRAM with lower 1MB address remapped */
+_RAM_BASE       = 0x1000;      /* For making a program that can be loaded in the U-Boot console and run with go command. Note: U-Boot console has some reserved memories that perhaps cannot be used, e.g. 0x0-0xfff (see with bdinfo command) */
+_RAM_SIZE       = 64M;         /* DDR3 SDRAM size of this app */
 
 /* Ensure these stack sizes are aligned to 8 bytes */
 _SYS_STACK_SIZE = 8192;

@@ -1,5 +1,5 @@
 # This is free script released into the public domain.
-# GNU make file v20231230 created by Truong Hy.
+# GNU make file v20240120 created by Truong Hy.
 #
 # Builds bare-metal source for the Intel Cyclone V SoC.
 # Depending on the options it will output the following application files:
@@ -50,10 +50,10 @@ alt ?= 0
 
 ifeq ($(OS),Windows_NT)
 ifeq ($(sd),1)
-$(error sd=1 parameter is not supported natively in Windows)
+$(error sd=1 parameter is not supported natively in Windows, use WSL2, Cygwin or MSYS2)
 endif
 ifeq ($(ub),1)
-$(error ub=1 parameter is not supported natively in Windows)
+$(error ub=1 parameter is not supported natively in Windows, use WSL2, Cygwin or MSYS2)
 endif
 endif
 
@@ -410,20 +410,20 @@ help:
 	@echo "Usage:"
 	@echo "  make [targets] [options]"
 	@echo ""
-	@echo "targets:"
-	@echo "  release       build elf Release (default)"
-	@echo "  debug         build elf Debug"
-	@echo "  clean         delete all built files"
-	@echo "  cleantemp     clean except target files"
-	@echo "options to use with target:"
-	@echo "  semi=1        use Semihosting"
-	@echo "  etu=1         elf exit to U-Boot"
-	@echo "  bin=1         outputs binary from the elf"
-	@echo "  uimg=1        outputs U-Boot image from the binary"
-	@echo "  sd=1          outputs SD card image using binary as default,"
-	@echo "                if uimg is specified then is used instead"
-	@echo "  ub=1          force build U-Boot sources"
-	@echo "  alt=1         use Altera's SD card image script"
+	@echo "Targets:"
+	@echo "  release       Build elf Release (default)"
+	@echo "  debug         Build elf Debug"
+	@echo "  clean         Delete all built files"
+	@echo "  cleantemp     Clean except target files"
+	@echo "Options to use with target:"
+	@echo "  semi=1        Use Semihosting"
+	@echo "  etu=1         Elf exit to U-Boot"
+	@echo "  bin=1         Outputs binary from the elf"
+	@echo "  uimg=1        Outputs U-Boot image from the binary"
+	@echo "  sd=1          Outputs SD card image using binary as default,"
+	@echo "                If uimg is specified then is used instead"
+	@echo "  ub=1          Force build U-Boot sources"
+	@echo "  alt=1         Use Altera's SD card image script"
 
 # ===========
 # Clean rules
@@ -471,10 +471,10 @@ clean: clean_ub clean_sd clean_app clean_1
 cleantemp_ub:
 ifneq ($(OS),Windows_NT)
 	@if [ -d "$(UBOOT_OUT_PATH)" ]; then \
-		echo rm -f $(DBG_UBOOT_SCRTXT); rm -f $(DBG_UBOOT_SCRTXT); \
-		echo rm -f $(DBG_UBOOT_SCR); rm -f $(DBG_UBOOT_SCR); \
-		echo rm -f $(REL_UBOOT_SCRTXT); rm -f $(REL_UBOOT_SCRTXT); \
-		echo rm -f $(REL_UBOOT_SCR); rm -f $(REL_UBOOT_SCR); \
+		if [ -f "$(DBG_UBOOT_SCRTXT)" ]; then echo rm -f $(DBG_UBOOT_SCRTXT); rm -f $(DBG_UBOOT_SCRTXT); fi; \
+		if [ -f "$(DBG_UBOOT_SCR)" ]; then echo rm -f $(DBG_UBOOT_SCR); rm -f $(DBG_UBOOT_SCR); fi; \
+		if [ -f "$(REL_UBOOT_SCRTXT)" ]; then echo rm -f $(REL_UBOOT_SCRTXT); rm -f $(REL_UBOOT_SCRTXT); fi; \
+		if [ -f "$(REL_UBOOT_SCR)" ]; then echo rm -f $(REL_UBOOT_SCR); rm -f $(REL_UBOOT_SCR); fi; \
 		if [ -d "$(DBG_UBOOT_SRC_PATH)/Makefile)" ]; then make -C $(DBG_UBOOT_SRC_PATH) --no-print-directory clean; fi; \
 		make -C $(UBOOT_IN_PATH) --no-print-directory -f Makefile-prep-ub.mk clean; \
 	fi
@@ -519,8 +519,8 @@ cleantemp_app:
 # Clean root folder
 cleantemp: cleantemp_ub cleantemp_sd cleantemp_app
 	@if [ -d "$(BM_OUT_PATH)" ]; then \
-		echo rm -f $(DBG_UBOOT_SCRTXT) $(DBG_UBOOT_SCR); rm -f $(DBG_UBOOT_SCRTXT) $(DBG_UBOOT_SCR); \
-		echo rm -f $(REL_UBOOT_SCRTXT) $(REL_UBOOT_SCR); rm -f $(REL_UBOOT_SCRTXT) $(REL_UBOOT_SCR); \
+		if [ -f "$(DBG_UBOOT_SCRTXT)" ]; then echo rm -f $(DBG_UBOOT_SCRTXT) $(DBG_UBOOT_SCR); rm -f $(DBG_UBOOT_SCRTXT) $(DBG_UBOOT_SCR); fi; \
+		if [ -f "$(REL_UBOOT_SCRTXT)" ]; then echo rm -f $(REL_UBOOT_SCRTXT) $(REL_UBOOT_SCR); rm -f $(REL_UBOOT_SCRTXT) $(REL_UBOOT_SCR); fi; \
 	fi
 
 # ===========

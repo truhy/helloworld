@@ -71,3 +71,17 @@ void c5_uart_write_char(uint32_t uart_base_addr, const char c){
 	// Write a single character to UART controller transmit holding register
 	c5_io_wr_word(uart_base_addr + C5_UART_RBR_THR_DLL_OFFSET, c);
 }
+
+void c5_uart_write_hex_nibble(uint32_t uart_base_addr, unsigned char nibble){
+	if(nibble > 9){
+		c5_uart_write_char(uart_base_addr, (char)(nibble + 87U));  // Convert to ASCII character
+	}else{
+		c5_uart_write_char(uart_base_addr, (char)(nibble + 48U));  // Convert to ASCII character
+	}
+}
+
+void c5_uart_write_inthex(uint32_t uart_base_addr, int num, unsigned int bits){
+	for(unsigned int i = bits; i; i -= 4){
+		c5_uart_write_hex_nibble(uart_base_addr, (unsigned char)(num >> (i - 4) & 0xf));
+	}
+}
