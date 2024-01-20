@@ -111,7 +111,7 @@ void __attribute__((naked)) reset_handler(void){
 #endif
 
 #if(L2_CACHE_ENABLE != 2)
-    // Disable L2 cache
+	// Disable L2 cache
 	alt_cache_l2_disable();
 	alt_cache_l2_parity_disable();
 	alt_cache_l2_prefetch_disable();
