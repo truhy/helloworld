@@ -93,7 +93,7 @@ endif
 ifeq ($(OS),Windows_NT)
 BM_HOME_PATH := $(subst \,/,$(BM_HOME_PATH))
 BM_OUT_PATH := $(subst \,/,$(BM_OUT_PATH))
-BM_SRC_PATH := $(subst \,/,$(BM_SRC_PATH))
+BM_SRC_PATH1 := $(subst \,/,$(BM_SRC_PATH1))
 UBOOT_OUT_PATH := $(subst \,/,$(UBOOT_OUT_PATH))
 SD_OUT_PATH := $(subst \,/,$(SD_OUT_PATH))
 endif
