@@ -21,8 +21,9 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	SOFTWARE.
 
-	Version: 20240120
-	Target : ARM Cortex-A9 on the DE10-Nano development board
+	Version: 20240121
+	Target : ARM Cortex-A9 on the DE10-Nano development board (Intel Cyclone V SoC FPGA)
+	Type   : Bare-metal C
 
 	A basic "Hello, World!" bare-metal C program for the DE10-Nano
 	development board.  It is for the SoC (aka HPS) part of the FPGA so it
