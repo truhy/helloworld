@@ -31,7 +31,6 @@
 	Standard, Arrow SoCKit, etc.
 */
 
-
 #include "c5_uart.h"
 #include "tru_logger.h"
 #include <string.h>
