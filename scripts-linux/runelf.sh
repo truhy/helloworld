@@ -9,6 +9,7 @@ function cleanup {
 trap cleanup EXIT
 
 if [ -z "${BM_HOME_PATH+x}" ]; then
+	chmod +x ../scripts-env/env-linux.sh
 	source ../scripts-env/env-linux.sh
 fi
 
