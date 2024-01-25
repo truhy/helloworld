@@ -98,9 +98,9 @@ endif
 # =========================================
 
 ifeq ($(etu),1)
-CFLAGS := -mcpu=cortex-a9 -mfloat-abi=hard -mfpu=neon -mno-unaligned-access -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -std=gnu11 -mgeneral-regs-only -DMMU_ENABLE=0 -DSMP_COHERENCY_ENABLE=0 -DL1_CACHE_ENABLE=2 -DL2_CACHE_ENABLE=2 -DSCU_ENABLE=0
+CFLAGS := -mcpu=cortex-a9 -mfloat-abi=hard -mfpu=neon -mno-unaligned-access -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -std=gnu11 -DMMU_ENABLE=0 -DSMP_COHERENCY_ENABLE=0 -DL1_CACHE_ENABLE=2 -DL2_CACHE_ENABLE=2 -DSCU_ENABLE=0
 else
-CFLAGS := -mcpu=cortex-a9 -mfloat-abi=hard -mfpu=neon -mno-unaligned-access -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -std=gnu11 -mgeneral-regs-only
+CFLAGS := -mcpu=cortex-a9 -mfloat-abi=hard -mfpu=neon -mno-unaligned-access -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -std=gnu11
 endif
 
 LDFLAGS := -Xlinker --gc-sections --specs=nosys.specs
