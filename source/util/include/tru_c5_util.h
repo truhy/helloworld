@@ -21,16 +21,20 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	SOFTWARE.
 
-	Version: 20231201
+	Version: 20242701
 
-	Contains functions for some newlib stub functions to support the DE10-Nano
-	development board.
-
-	Contains mostly minimal implementation (fake return success or failure).
-	Added in debug print to HPS UART0.
+	UART functions for Cyclone V SoC (HPS).
 */
 
-#ifndef NEWLIB_EXT_H
-#define NEWLIB_EXT_H
+#ifndef TRU_C5_UTIL_H
+#define TRU_C5_UTIL_H
+
+#include <stdint.h>
+
+// Support macros
+#define TRU_C5_REG_TYPE uint32_t
+#define TRU_C5_CAST(type, ptr) ((type)(ptr))
+#define tru_c5_io_rd_word(src_addr) (*TRU_C5_CAST(volatile TRU_C5_REG_TYPE *, (src_addr)))
+#define tru_c5_io_wr_word(dst_addr, src_addr) (*TRU_C5_CAST(volatile TRU_C5_REG_TYPE *, (dst_addr)) = (src_addr))
 
 #endif

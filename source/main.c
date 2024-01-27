@@ -21,7 +21,7 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	SOFTWARE.
 
-	Version: 20240121
+	Version: 20242701
 	Target : ARM Cortex-A9 on the DE10-Nano development board (Intel Cyclone V SoC FPGA)
 	Type   : Bare-metal C
 
@@ -31,7 +31,7 @@
 	Standard, Arrow SoCKit, etc.
 */
 
-#include "c5_uart.h"
+#include "tru_c5_uart.h"
 #include "tru_logger.h"
 #include <string.h>
 
@@ -39,7 +39,7 @@
 	extern void initialise_monitor_handles(void);  // Reference function header from the external Semihosting library
 #endif
 
-#ifdef EXIT_TO_UBOOT
+#if(TRU_EXIT_TO_UBOOT)
 	extern long unsigned int uboot_lr;
 	extern long unsigned int uboot_sp;
 	extern int uboot_argc;
@@ -54,7 +54,7 @@ char message[] = "Hello, World!\r\n";
 
 // Transmit hello message
 void tx_hello(void){
-	c5_uart_write_str(C5_UART0_BASE_ADDR, message, strlen(message));
+	tru_c5_uart_write_str(TRU_C5_UART0_BASE_ADDR, message, strlen(message));
 }
 
 // ====================================
@@ -82,22 +82,22 @@ const char *messages[] = {
 
 // Transmit CLI arguments
 void tx_cli_args(int argc, char *const argv[]){
-	c5_uart_write_str(C5_UART0_BASE_ADDR, messages[MSG_INPUTS], strlen(messages[MSG_INPUTS]));
+	tru_c5_uart_write_str(TRU_C5_UART0_BASE_ADDR, messages[MSG_INPUTS], strlen(messages[MSG_INPUTS]));
 
 	// Transmit input arguments count from U-Boot
-	c5_uart_write_str(C5_UART0_BASE_ADDR, messages[MSG_ARGC], strlen(messages[MSG_ARGC]));
-	c5_uart_write_inthex(C5_UART0_BASE_ADDR, argc, 32);
-	c5_uart_write_str(C5_UART0_BASE_ADDR, messages[MSG_NEWLINE], strlen(messages[MSG_NEWLINE]));
+	tru_c5_uart_write_str(TRU_C5_UART0_BASE_ADDR, messages[MSG_ARGC], strlen(messages[MSG_ARGC]));
+	tru_c5_uart_write_inthex(TRU_C5_UART0_BASE_ADDR, argc, 32);
+	tru_c5_uart_write_str(TRU_C5_UART0_BASE_ADDR, messages[MSG_NEWLINE], strlen(messages[MSG_NEWLINE]));
 
 	if(argc){
 		// Transmit input argument value from U-Boot
 		for(int i = 0; i < argc; i++){
-			c5_uart_write_str(C5_UART0_BASE_ADDR, messages[MSG_ARGV], strlen(messages[MSG_ARGV]));
-			c5_uart_write_str(C5_UART0_BASE_ADDR, argv[i], strlen(argv[i]));
-			c5_uart_write_str(C5_UART0_BASE_ADDR, messages[MSG_NEWLINE], strlen(messages[MSG_NEWLINE]));
+			tru_c5_uart_write_str(TRU_C5_UART0_BASE_ADDR, messages[MSG_ARGV], strlen(messages[MSG_ARGV]));
+			tru_c5_uart_write_str(TRU_C5_UART0_BASE_ADDR, argv[i], strlen(argv[i]));
+			tru_c5_uart_write_str(TRU_C5_UART0_BASE_ADDR, messages[MSG_NEWLINE], strlen(messages[MSG_NEWLINE]));
 		}
 	}else{
-		c5_uart_write_str(C5_UART0_BASE_ADDR, messages[MSG_NONE], strlen(messages[MSG_NONE]));
+		tru_c5_uart_write_str(TRU_C5_UART0_BASE_ADDR, messages[MSG_NONE], strlen(messages[MSG_NONE]));
 	}
 }
 
@@ -106,12 +106,12 @@ int main(int argc, char *const argv[]){
 		initialise_monitor_handles();  // Initialise Semihosting
 	#endif
 
-#ifdef EXIT_TO_UBOOT
+#if(TRU_EXIT_TO_UBOOT)
 	//tx_cli_args(argc, argv);
 	tx_cli_args(uboot_argc, uboot_argv);
 	tx_hello();
-	c5_uart_write_str(C5_UART0_BASE_ADDR, messages[MSG_EXIT], strlen(messages[MSG_EXIT]));
-	c5_uart_wait_empty(C5_UART0_BASE_ADDR);  // Before returning to U-Boot, we will wait for the UART to empty out
+	tru_c5_uart_write_str(TRU_C5_UART0_BASE_ADDR, messages[MSG_EXIT], strlen(messages[MSG_EXIT]));
+	tru_c5_uart_wait_empty(TRU_C5_UART0_BASE_ADDR);  // Before returning to U-Boot, we will wait for the UART to empty out
 #else
 	tx_hello();
 #endif
@@ -137,10 +137,10 @@ void __attribute__((naked)) etu(int rc){
 
 // Override newlib _exit()
 void __attribute__((noreturn)) _exit(int status){
-#ifdef EXIT_TO_UBOOT
+#if(TRU_EXIT_TO_UBOOT)
 	etu(status);
 #endif
 
-	//DEBUG_PRINTF("DEBUG: Starting infinity loop"_NL);
+	DEBUG_PRINTF("DEBUG: Starting infinity loop"_NL);
 	while(1);
 }
