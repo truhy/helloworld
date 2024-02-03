@@ -39,6 +39,12 @@
 #include "alt_mmu.h"
 #include "alt_interrupt.h"
 
+#if(TRU_EXIT_TO_UBOOT)
+  #define RESET_ARGS int argc, char *const argv[]
+#else
+  #define RESET_ARGS void
+#endif
+
 // Prototypes
 #if(TRU_MMU_ENABLE)
 static void mmu_init(void);
