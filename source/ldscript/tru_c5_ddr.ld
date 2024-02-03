@@ -7,12 +7,12 @@ __RAM_BASE       = 0x1000;              /* For making a program that can be load
 __RAM_SIZE       = 1024M - __RAM_BASE;  /* DDR3 SDRAM size of this app */
 
 /* Ensure these stack sizes are aligned to 8 bytes */
-__SYS_STACK_SIZE = 8192;
-__UND_STACK_SIZE = 4096;
-__ABT_STACK_SIZE = 4096;
-__SVC_STACK_SIZE = 4096;
-__IRQ_STACK_SIZE = 4096;
 __FIQ_STACK_SIZE = 4096;
+__IRQ_STACK_SIZE = 4096;
+__SVC_STACK_SIZE = 4096;
+__ABT_STACK_SIZE = 4096;
+__UND_STACK_SIZE = 4096;
+__SYS_STACK_SIZE = 8192;  /* This is also for the user mode, because they use the same stack pointer */
 
 MEMORY {
     __RAM (rwx) : ORIGIN = __RAM_BASE, LENGTH = __RAM_SIZE
@@ -36,7 +36,7 @@ SECTIONS {
     .vectors : {
         __vectors = .;
         
-        KEEP(*(.vectors))
+        *(.vectors)
         
         __evectors = .;
     } > __RAM : __LOAD_RX
@@ -187,7 +187,7 @@ SECTIONS {
         __heap_start = .;  /* User defined symbol */
         
         *(.heap*)
-        . = ORIGIN(__RAM) + LENGTH(__RAM) - . - __SYS_STACK_SIZE - __UND_STACK_SIZE - __ABT_STACK_SIZE - __SVC_STACK_SIZE - __IRQ_STACK_SIZE - __FIQ_STACK_SIZE;  /* Calculate maximum heap size to move stack all the way to the end of RAM */
+        . = ORIGIN(__RAM) + LENGTH(__RAM) - . - __FIQ_STACK_SIZE - __IRQ_STACK_SIZE - __SVC_STACK_SIZE - __ABT_STACK_SIZE - __UND_STACK_SIZE - __SYS_STACK_SIZE;  /* Calculate maximum heap size to move stack all the way to the end of RAM */
         
         . = ALIGN(4);
         __heap_end = .;    /* User defined symbol */
@@ -196,31 +196,31 @@ SECTIONS {
 
     .stack (NOLOAD) : {
         . = ALIGN(8);
-        
-        __SYS_STACK_BASE = .;
-        . += __SYS_STACK_SIZE;
-        __SYS_STACK_LIMIT = .;
-        
-        __UND_STACK_BASE = .;
-        . += __UND_STACK_SIZE;
-        __UND_STACK_LIMIT = .;
-        
-        __ABT_STACK_BASE = .;
-        . += __ABT_STACK_SIZE;
-        __ABT_STACK_LIMIT = .;
-        
-        __SVC_STACK_BASE = .;
-        . += __SVC_STACK_SIZE;
-        __SVC_STACK_LIMIT = .;
-        
-        __IRQ_STACK_BASE = .;
-        . += __IRQ_STACK_SIZE;
-        __IRQ_STACK_LIMIT = .;
-        
+
         __FIQ_STACK_BASE = .;
         . += __FIQ_STACK_SIZE;
         __FIQ_STACK_LIMIT = .;
+		
+		__IRQ_STACK_BASE = .;
+        . += __IRQ_STACK_SIZE;
+        __IRQ_STACK_LIMIT = .;
+		
+		__SVC_STACK_BASE = .;
+        . += __SVC_STACK_SIZE;
+        __SVC_STACK_LIMIT = .;
+		
+		__ABT_STACK_BASE = .;
+        . += __ABT_STACK_SIZE;
+        __ABT_STACK_LIMIT = .;
+		
+		__UND_STACK_BASE = .;
+        . += __UND_STACK_SIZE;
+        __UND_STACK_LIMIT = .;
         
+		__SYS_STACK_BASE = .;
+        . += __SYS_STACK_SIZE;
+        __SYS_STACK_LIMIT = .;
+
         __stack = .;  /* Used by newlib */
         
         . = ALIGN(8);

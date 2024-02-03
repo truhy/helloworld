@@ -21,7 +21,7 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	SOFTWARE.
 
-	Version: 20242701
+	Version: 20240203
 	Target : ARM Cortex-A9 on the DE10-Nano development board (Intel Cyclone V SoC FPGA)
 	Type   : Bare-metal C
 
@@ -31,19 +31,13 @@
 	Standard, Arrow SoCKit, etc.
 */
 
+#include "tru_config.h"
 #include "tru_c5_uart.h"
 #include "tru_logger.h"
 #include <string.h>
 
 #ifdef SEMIHOSTING
 	extern void initialise_monitor_handles(void);  // Reference function header from the external Semihosting library
-#endif
-
-#if(TRU_EXIT_TO_UBOOT)
-	extern long unsigned int uboot_lr;
-	extern long unsigned int uboot_sp;
-	extern int uboot_argc;
-	extern char **uboot_argv;
 #endif
 
 // =============================
@@ -117,30 +111,4 @@ int main(int argc, char *const argv[]){
 #endif
 
 	return 0xa9;
-}
-
-// Exit to U-Boot
-void __attribute__((naked)) etu(int rc){
-	__asm__(
-		// Restore system stack pointer
-		"LDR r3, =uboot_sp \n"
-		"LDR sp, [r3]      \n"
-
-		// Restore return address
-		"LDR r3, =uboot_lr \n"
-		"LDR lr, [r3]      \n"
-
-		// Return to U-Boot
-		"BX lr             \n"
-	);
-}
-
-// Override newlib _exit()
-void __attribute__((noreturn)) _exit(int status){
-#if(TRU_EXIT_TO_UBOOT)
-	etu(status);
-#endif
-
-	DEBUG_PRINTF("DEBUG: Starting infinity loop"_NL);
-	while(1);
 }
