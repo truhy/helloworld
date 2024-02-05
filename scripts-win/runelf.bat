@@ -6,12 +6,12 @@
 
 :release
 @SET app1_elf=Release//%BM_PROGRAM_NAME1%.elf
-@SET ubootspl=%BM_SRC_PATH1%//startup/u-boot-spl
+@SET ubootspl=%BM_SRC_PATH1%//bsp//u-boot-spl
 @GOTO find_elf_entry_point
 
 :debug
 @SET app1_elf=Debug//%BM_PROGRAM_NAME1%.elf
-@SET ubootspl=%BM_SRC_PATH1%//startup/u-boot-spl-nocache
+@SET ubootspl=%BM_SRC_PATH1%//bsp//u-boot-spl-nocache
 @GOTO find_elf_entry_point
 
 :find_elf_entry_point
