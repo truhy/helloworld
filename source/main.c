@@ -21,7 +21,7 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	SOFTWARE.
 
-	Version: 20240203
+	Version: 20240211
 	Target : ARM Cortex-A9 on the DE10-Nano development board (Intel Cyclone V SoC FPGA)
 	Type   : Bare-metal C
 
@@ -32,7 +32,7 @@
 */
 
 #include "tru_config.h"
-#include "tru_c5_uart.h"
+#include "tru_uart_ll.h"
 #include "tru_logger.h"
 #include <string.h>
 
@@ -48,7 +48,7 @@ char message[] = "Hello, World!\r\n";
 
 // Transmit hello message
 void tx_hello(void){
-	tru_c5_uart_write_str(TRU_C5_UART0_BASE_ADDR, message, strlen(message));
+	tru_uart_ll_write_str(TRU_UART0_BASE_ADDR, message, strlen(message));
 }
 
 // ====================================
@@ -76,22 +76,22 @@ const char *messages[] = {
 
 // Transmit CLI arguments
 void tx_cli_args(int argc, char *const argv[]){
-	tru_c5_uart_write_str(TRU_C5_UART0_BASE_ADDR, messages[MSG_INPUTS], strlen(messages[MSG_INPUTS]));
+	tru_uart_ll_write_str(TRU_UART0_BASE_ADDR, messages[MSG_INPUTS], strlen(messages[MSG_INPUTS]));
 
 	// Transmit input arguments count from U-Boot
-	tru_c5_uart_write_str(TRU_C5_UART0_BASE_ADDR, messages[MSG_ARGC], strlen(messages[MSG_ARGC]));
-	tru_c5_uart_write_inthex(TRU_C5_UART0_BASE_ADDR, argc, 32);
-	tru_c5_uart_write_str(TRU_C5_UART0_BASE_ADDR, messages[MSG_NEWLINE], strlen(messages[MSG_NEWLINE]));
+	tru_uart_ll_write_str(TRU_UART0_BASE_ADDR, messages[MSG_ARGC], strlen(messages[MSG_ARGC]));
+	tru_uart_ll_write_inthex(TRU_UART0_BASE_ADDR, argc, 32);
+	tru_uart_ll_write_str(TRU_UART0_BASE_ADDR, messages[MSG_NEWLINE], strlen(messages[MSG_NEWLINE]));
 
 	if(argc){
 		// Transmit input argument value from U-Boot
 		for(int i = 0; i < argc; i++){
-			tru_c5_uart_write_str(TRU_C5_UART0_BASE_ADDR, messages[MSG_ARGV], strlen(messages[MSG_ARGV]));
-			tru_c5_uart_write_str(TRU_C5_UART0_BASE_ADDR, argv[i], strlen(argv[i]));
-			tru_c5_uart_write_str(TRU_C5_UART0_BASE_ADDR, messages[MSG_NEWLINE], strlen(messages[MSG_NEWLINE]));
+			tru_uart_ll_write_str(TRU_UART0_BASE_ADDR, messages[MSG_ARGV], strlen(messages[MSG_ARGV]));
+			tru_uart_ll_write_str(TRU_UART0_BASE_ADDR, argv[i], strlen(argv[i]));
+			tru_uart_ll_write_str(TRU_UART0_BASE_ADDR, messages[MSG_NEWLINE], strlen(messages[MSG_NEWLINE]));
 		}
 	}else{
-		tru_c5_uart_write_str(TRU_C5_UART0_BASE_ADDR, messages[MSG_NONE], strlen(messages[MSG_NONE]));
+		tru_uart_ll_write_str(TRU_UART0_BASE_ADDR, messages[MSG_NONE], strlen(messages[MSG_NONE]));
 	}
 }
 
@@ -104,8 +104,8 @@ int main(int argc, char *const argv[]){
 	//tx_cli_args(argc, argv);
 	tx_cli_args(uboot_argc, uboot_argv);
 	tx_hello();
-	tru_c5_uart_write_str(TRU_C5_UART0_BASE_ADDR, messages[MSG_EXIT], strlen(messages[MSG_EXIT]));
-	tru_c5_uart_wait_empty(TRU_C5_UART0_BASE_ADDR);  // Before returning to U-Boot, we will wait for the UART to empty out
+	tru_uart_ll_write_str(TRU_UART0_BASE_ADDR, messages[MSG_EXIT], strlen(messages[MSG_EXIT]));
+	tru_uart_ll_wait_empty(TRU_UART0_BASE_ADDR);  // Before returning to U-Boot, we will wait for the UART to empty out
 #else
 	tx_hello();
 #endif
