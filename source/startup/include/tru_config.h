@@ -21,7 +21,7 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	SOFTWARE.
 
-	Version: 20240323
+	Version: 20240324
 
 	Trulib configuration
  */
@@ -33,15 +33,16 @@
 // User settings
 // =============
 
-#define TRU_USER_TARGET            TRU_C5SOC
-#define TRU_USER_EXIT_TO_UBOOT     0U
-#define TRU_USER_NEON_ENABLE       1U
+#define TRU_USER_TARGET                 TRU_C5SOC
+#define TRU_USER_EXIT_TO_UBOOT          0U
+#define TRU_USER_NEON_ENABLE            1U
 
-#define TRU_USER_DEBUG_PRINT_LEVEL 1U
-#define TRU_USER_DEBUG_PRINT_UART  1U
-#define TRU_USER_REL_PRINT_LEVEL   0U
-#define TRU_USER_REL_PRINT_UART    0U
-#define TRU_USER_PRINT_UART_R_NL   1U
+#define TRU_USER_DEBUG_PRINT_LEVEL      1U
+#define TRU_USER_DEBUG_PRINT_UART       1U
+#define TRU_USER_REL_PRINT_LEVEL        0U
+#define TRU_USER_REL_PRINT_UART         0U
+#define TRU_USER_PRINT_UART_R_NL        1U
+#define TRU_USER_DEBUG_PRINT_L_SECTIONS 1U
 
 // ===============================
 // Apply user or override settings
@@ -84,6 +85,10 @@
 #ifndef TRU_PRINT_UART_R_NL
 	// 1U == Enables insertion of '\r' for each '\n' character
 	#define TRU_PRINT_UART_R_NL TRU_USER_PRINT_UART_R_NL
+#endif
+
+#ifndef TRU_DEBUG_PRINT_L_SECTIONS
+	#define TRU_DEBUG_PRINT_L_SECTIONS TRU_USER_DEBUG_PRINT_L_SECTIONS
 #endif
 
 // ======================

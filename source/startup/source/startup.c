@@ -21,7 +21,7 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	SOFTWARE.
 
-	Version: 20240205
+	Version: 20240324
 
 	Bare-metal C startup initialisations for the Intel Cyclone V SoC (HPS), ARM Cortex-A9.
 	Mostly using HWLib.
@@ -38,6 +38,43 @@
 #include "alt_cache.h"
 #include "alt_mmu.h"
 #include "alt_interrupt.h"
+#include "tru_logger.h"
+
+extern long unsigned int __bss_start__;  // Reference external symbol name from the linker file
+extern long unsigned int __bss_end__;    // Reference external symbol name from the linker file
+
+#if(TRU_DEBUG_PRINT_L_SECTIONS == 1U && defined(TRU_DEBUG_PRINT_LEVEL) && TRU_DEBUG_PRINT_LEVEL >= 1U)
+	extern long unsigned int __TTB_BASE;         // Reference external symbol name from the linker file
+	extern long unsigned int __data_start;       // Reference external symbol name from the linker file
+	extern long unsigned int __data_end;         // Reference external symbol name from the linker file
+	extern long unsigned int __heap_start;       // Reference external symbol name from the linker file
+	extern long unsigned int __heap_end;         // Reference external symbol name from the linker file
+	extern long unsigned int __SYS_STACK_BASE;   // Reference external symbol name from the linker file
+	extern long unsigned int __SYS_STACK_LIMIT;  // Reference external symbol name from the linker file
+
+	void disp_linker_sections(void){
+		DEBUG_PRINTF("Linker sections:\n");
+		DEBUG_PRINTF("__TTB_BASE       : 0x%.8x\n", &__TTB_BASE);
+		DEBUG_PRINTF("__data_start     : 0x%.8x\n", &__data_start);
+		DEBUG_PRINTF("__data_end       : 0x%.8x\n", &__data_end);
+		DEBUG_PRINTF("__bss_start__    : 0x%.8x\n", &__bss_start__);
+		DEBUG_PRINTF("__bss_end__      : 0x%.8x\n", &__bss_end__);
+		DEBUG_PRINTF("__heap_start     : 0x%.8x\n", &__heap_start);
+		DEBUG_PRINTF("__heap_end       : 0x%.8x\n", &__heap_end);
+		DEBUG_PRINTF("__SYS_STACK_BASE : 0x%.8x\n", &__SYS_STACK_BASE);
+		DEBUG_PRINTF("__SYS_STACK_LIMIT: 0x%.8x\n\n", &__SYS_STACK_LIMIT);
+	}
+#endif
+
+// Zero fill .bss section.  The OS or std library normally does this, else we have to do it
+void zero_bss(void){
+	long unsigned int *dst = &__bss_start__;
+	while(dst < &__bss_end__) *dst++ = 0;  // Zero fill
+}
+
+#if(TRU_MMU_ENABLE == 1U)
+	void mmu_init(void);
+#endif
 
 #if(ALT_INT_PROVISION_VECTOR_SUPPORT == 0U)
 	// Exception & interrupt handler prototypes for core 0
@@ -70,16 +107,12 @@
 	}
 #endif
 
-#if(TRU_MMU_ENABLE == 1U)
-	void mmu_init(void);
-#endif
-
 // =============
 // Reset handler
 // =============
 
 // Notes:
-// - Newlib will initialise the .bss section for us so no need to do it here
+// - Newlib's startup() will initialise the .bss section
 // - In Altera's HWLib their vector table is named __intc_interrupt_vector, see alt_interrupt.c
 // - In Altera's HWLib, their vector table branches to _socfpga_main() as the reset handler, see alt_interrupt.c
 void __attribute__((naked)) reset_handler(void){
@@ -105,7 +138,7 @@ void __attribute__((naked)) reset_handler(void){
 #if(TRU_CLEAN_CACHE == 1U)
 	// Since we are starting from U-Boot which may have the cache enabled,
 	// loaded file(s) and some global variables may be cached and stay dirty.
-	// Let's make sure that all dirty lines are written back into memory, in
+	// Let's make sure that all dirty lines are written back into memory - in
 	// case cache settings are changed later on
 	alt_cache_l1_data_clean_all();
 	alt_cache_l2_clean_all();
@@ -191,6 +224,13 @@ void __attribute__((naked)) reset_handler(void){
 		"AND r0, r0, r1                                \n"
 		"VMSR fpscr, r0                                \n"
 	);
+#endif
+
+	zero_bss();  // Although newlib will zero the bss in its _startup(), but because we are going to call some C functions before that, it is necessary here,
+	             // for example, the newlib printf, fprintf, etc will cause a fault exception without it
+
+#if(TRU_DEBUG_PRINT_L_SECTIONS == 1U && defined(TRU_DEBUG_PRINT_LEVEL) && TRU_DEBUG_PRINT_LEVEL >= 1U)
+	disp_linker_sections();
 #endif
 
 #if(ALT_INT_PROVISION_VECTOR_SUPPORT == 0U)
