@@ -119,6 +119,12 @@ void __attribute__((naked)) reset_handler(void){
 	__asm__ volatile(
 		"CPSID if                                      \n"  // Mask interrupts
 
+		// Switch into secure access mode
+		"MRC p15, 0, r0, c1, c1, 2                          \n"  // Read NSACR (Non-secure Access Control Register)
+		"ORR r0, r0, #(0x3 << 20)                           \n"  // Setup bits to enable access permissions.  Undocumented Altera/Intel Cyclone V SoC vendor specific
+		"MCR p15, 0, r0, c1, c1, 2                          \n"  // Write NSACR
+		"ISB                                                \n"
+
 		// Setup stack for each exception mode
 		// Note: When you call HWLib's interrupt init function the stacks will be change to a global variable array, and this setup will be dropped
 		"CPS #0x11                                     \n"
@@ -178,13 +184,6 @@ void __attribute__((naked)) reset_handler(void){
 #if(TRU_MMU_ENABLE != 2U)
 	alt_mmu_disable();
 #endif
-
-	__asm__ volatile(
-		// Enable permissions
-		"MRC p15, 0, r0, c1, c1, 2                     \n"  // Read NSACR (Non-secure Access Control Register)
-		"ORR r0, r0, #(0x3 << 20)                      \n"  // Setup bits to enable access permissions.  Undocumented Altera/Intel Cyclone V SoC vendor specific
-		"MCR p15, 0, r0, c1, c1, 2                     \n"  // Write NSACR
-	);
 
 #if(TRU_NEON_ENABLE == 1U)
 	__asm__ volatile(
@@ -345,7 +344,7 @@ void _stack_init(void){
 				.attributes = ALT_MMU_ATTR_WBA,
 				.shareable  = ALT_MMU_TTB_S_SHAREABLE,
 				.execute    = ALT_MMU_TTB_XN_DISABLE,
-				.security   = ALT_MMU_TTB_NS_NON_SECURE
+				.security   = ALT_MMU_TTB_NS_SECURE
 			},
 			// Device area: 1GB of everything else
 			{
