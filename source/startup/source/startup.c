@@ -21,7 +21,7 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	SOFTWARE.
 
-	Version: 20240324
+	Version: 20240505
 
 	Bare-metal C startup initialisations for the Intel Cyclone V SoC (HPS), ARM Cortex-A9.
 	Mostly using HWLib.
@@ -42,29 +42,6 @@
 
 extern long unsigned int __bss_start__;  // Reference external symbol name from the linker file
 extern long unsigned int __bss_end__;    // Reference external symbol name from the linker file
-
-#if(TRU_DEBUG_PRINT_L_SECTIONS == 1U && defined(TRU_DEBUG_PRINT_LEVEL) && TRU_DEBUG_PRINT_LEVEL >= 1U)
-	extern long unsigned int __TTB_BASE;         // Reference external symbol name from the linker file
-	extern long unsigned int __data_start;       // Reference external symbol name from the linker file
-	extern long unsigned int __data_end;         // Reference external symbol name from the linker file
-	extern long unsigned int __heap_start;       // Reference external symbol name from the linker file
-	extern long unsigned int __heap_end;         // Reference external symbol name from the linker file
-	extern long unsigned int __SYS_STACK_BASE;   // Reference external symbol name from the linker file
-	extern long unsigned int __SYS_STACK_LIMIT;  // Reference external symbol name from the linker file
-
-	void disp_linker_sections(void){
-		DEBUG_PRINTF("Linker sections:\n");
-		DEBUG_PRINTF("__TTB_BASE       : 0x%.8x\n", &__TTB_BASE);
-		DEBUG_PRINTF("__data_start     : 0x%.8x\n", &__data_start);
-		DEBUG_PRINTF("__data_end       : 0x%.8x\n", &__data_end);
-		DEBUG_PRINTF("__bss_start__    : 0x%.8x\n", &__bss_start__);
-		DEBUG_PRINTF("__bss_end__      : 0x%.8x\n", &__bss_end__);
-		DEBUG_PRINTF("__heap_start     : 0x%.8x\n", &__heap_start);
-		DEBUG_PRINTF("__heap_end       : 0x%.8x\n", &__heap_end);
-		DEBUG_PRINTF("__SYS_STACK_BASE : 0x%.8x\n", &__SYS_STACK_BASE);
-		DEBUG_PRINTF("__SYS_STACK_LIMIT: 0x%.8x\n\n", &__SYS_STACK_LIMIT);
-	}
-#endif
 
 // Zero fill .bss section.  The OS or std library normally does this, else we have to do it
 void zero_bss(void){
@@ -225,12 +202,8 @@ void __attribute__((naked)) reset_handler(void){
 	);
 #endif
 
-	zero_bss();  // Although newlib will zero the bss in its _startup(), but because we are going to call some C functions before that, it is necessary here,
+	//zero_bss();  // Although newlib will zero the bss in its _startup(), but because we are going to call some C functions before that, it is necessary here,
 	             // for example, the newlib printf, fprintf, etc will cause a fault exception without it
-
-#if(TRU_DEBUG_PRINT_L_SECTIONS == 1U && defined(TRU_DEBUG_PRINT_LEVEL) && TRU_DEBUG_PRINT_LEVEL >= 1U)
-	disp_linker_sections();
-#endif
 
 #if(ALT_INT_PROVISION_VECTOR_SUPPORT == 0U)
 	__asm__ volatile(

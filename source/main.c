@@ -21,7 +21,7 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	SOFTWARE.
 
-	Version: 20240315
+	Version: 20240505
 	Target : ARM Cortex-A9 on the DE10-Nano development board (Intel Cyclone V SoC FPGA)
 	Type   : Bare-metal C
 
@@ -32,66 +32,69 @@
 */
 
 #include "tru_config.h"
-#include "tru_uart_ll.h"
-#include <string.h>
+#include "tru_logger.h"
+#include <stdio.h>
 
 #ifdef SEMIHOSTING
 	extern void initialise_monitor_handles(void);  // Reference function header from the external Semihosting library
+#endif
+
+#if(TRU_DEBUG_PRINT_L_SECTIONS == 1U && defined(TRU_DEBUG_PRINT_LEVEL) && TRU_DEBUG_PRINT_LEVEL >= 1U)
+	extern long unsigned int __TTB_BASE;         // Reference external symbol name from the linker file
+	extern long unsigned int __data_start;       // Reference external symbol name from the linker file
+	extern long unsigned int __data_end;         // Reference external symbol name from the linker file
+	extern long unsigned int __bss_start__;      // Reference external symbol name from the linker file
+	extern long unsigned int __bss_end__;        // Reference external symbol name from the linker file
+	extern long unsigned int __heap_start;       // Reference external symbol name from the linker file
+	extern long unsigned int __heap_end;         // Reference external symbol name from the linker file
+	extern long unsigned int __SYS_STACK_BASE;   // Reference external symbol name from the linker file
+	extern long unsigned int __SYS_STACK_LIMIT;  // Reference external symbol name from the linker file
+
+	void disp_linker_sections(void){
+		DEBUG_PRINTF("Linker sections:\n");
+		DEBUG_PRINTF("__TTB_BASE       : 0x%.8x\n", &__TTB_BASE);
+		DEBUG_PRINTF("__data_start     : 0x%.8x\n", &__data_start);
+		DEBUG_PRINTF("__data_end       : 0x%.8x\n", &__data_end);
+		DEBUG_PRINTF("__bss_start__    : 0x%.8x\n", &__bss_start__);
+		DEBUG_PRINTF("__bss_end__      : 0x%.8x\n", &__bss_end__);
+		DEBUG_PRINTF("__heap_start     : 0x%.8x\n", &__heap_start);
+		DEBUG_PRINTF("__heap_end       : 0x%.8x\n", &__heap_end);
+		DEBUG_PRINTF("__SYS_STACK_BASE : 0x%.8x\n", &__SYS_STACK_BASE);
+		DEBUG_PRINTF("__SYS_STACK_LIMIT: 0x%.8x\n\n", &__SYS_STACK_LIMIT);
+	}
 #endif
 
 // =============================
 // "Hello, World!" demonstration
 // =============================
 
-char message[] = "Hello, World!\n";
-
-// Transmit hello message
 void tx_hello(void){
-	tru_uart_ll_write_str((TRU_TARGET_TYPE *)TRU_UART0_BASE_ADDR, message, strlen(message));
+	printf("Hello, World!\n");
 }
 
 // ====================================
 // U-Boot input arguments demonstration
 // ====================================
 
-enum message_id{
-	MSG_INPUTS,
-	MSG_ARGC,
-	MSG_ARGV,
-	MSG_NEWLINE,
-	MSG_NONE,
-	MSG_EXIT
-};
-
-// Messages
-const char *messages[] = {
-	"Arguments from U-Boot:\n",
-	"argc: 0x",
-	"argv: ",
-	"\n",
-	"none\n",
-	"Exiting application..\n"
-};
-
-// Transmit CLI arguments
+// Display CLI arguments
 void tx_cli_args(int argc, char *const argv[]){
-	tru_uart_ll_write_str((TRU_TARGET_TYPE *)TRU_UART0_BASE_ADDR, messages[MSG_INPUTS], strlen(messages[MSG_INPUTS]));
+	printf("Arguments from U-Boot:\n");
 
-	// Transmit input arguments count from U-Boot
-	tru_uart_ll_write_str((TRU_TARGET_TYPE *)TRU_UART0_BASE_ADDR, messages[MSG_ARGC], strlen(messages[MSG_ARGC]));
-	tru_uart_ll_write_inthex((TRU_TARGET_TYPE *)TRU_UART0_BASE_ADDR, argc, 32);
-	tru_uart_ll_write_str((TRU_TARGET_TYPE *)TRU_UART0_BASE_ADDR, messages[MSG_NEWLINE], strlen(messages[MSG_NEWLINE]));
+	// Display input arguments count from U-Boot
+	printf("argc: %i\n", argc);
 
 	if(argc){
-		// Transmit input argument value from U-Boot
+		// Display input argument value from U-Boot
 		for(int i = 0; i < argc; i++){
-			tru_uart_ll_write_str((TRU_TARGET_TYPE *)TRU_UART0_BASE_ADDR, messages[MSG_ARGV], strlen(messages[MSG_ARGV]));
-			tru_uart_ll_write_str((TRU_TARGET_TYPE *)TRU_UART0_BASE_ADDR, argv[i], strlen(argv[i]));
-			tru_uart_ll_write_str((TRU_TARGET_TYPE *)TRU_UART0_BASE_ADDR, messages[MSG_NEWLINE], strlen(messages[MSG_NEWLINE]));
+			printf("argv[%i]: %s\n", i, argv[i]);
 		}
 	}else{
-		tru_uart_ll_write_str((TRU_TARGET_TYPE *)TRU_UART0_BASE_ADDR, messages[MSG_NONE], strlen(messages[MSG_NONE]));
+		printf("none\n");
 	}
+}
+
+void tx_exit(void){
+	printf("Exiting application..\n");
 }
 
 int main(int argc, char *const argv[]){
@@ -99,14 +102,18 @@ int main(int argc, char *const argv[]){
 		initialise_monitor_handles();  // Initialise Semihosting
 	#endif
 
-#if(TRU_EXIT_TO_UBOOT)
+#if(TRU_DEBUG_PRINT_L_SECTIONS == 1U && defined(TRU_DEBUG_PRINT_LEVEL) && TRU_DEBUG_PRINT_LEVEL >= 1U)
+	disp_linker_sections();
+#endif
+
+#if(TRU_EXIT_TO_UBOOT == 0U)
+	tx_hello();
+#else
 	//tx_cli_args(argc, argv);
 	tx_cli_args(uboot_argc, uboot_argv);
 	tx_hello();
-	tru_uart_ll_write_str((TRU_TARGET_TYPE *)TRU_UART0_BASE_ADDR, messages[MSG_EXIT], strlen(messages[MSG_EXIT]));
-	tru_uart_ll_wait_empty((TRU_TARGET_TYPE *)TRU_UART0_BASE_ADDR);  // Before returning to U-Boot, we will wait for the UART to empty out
-#else
-	tx_hello();
+	tx_exit();
+	tru_hps_uart_ll_wait_empty((TRU_TARGET_TYPE *)TRU_HPS_UART0_BASE);  // Before returning to U-Boot, we will wait for the UART to empty out
 #endif
 
 	return 0xa9;
