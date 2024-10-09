@@ -39,7 +39,7 @@
 	extern void initialise_monitor_handles(void);  // Reference function header from the external Semihosting library
 #endif
 
-#if(TRU_DEBUG_PRINT_L_SECTIONS == 1U && defined(TRU_DEBUG_PRINT_LEVEL) && TRU_DEBUG_PRINT_LEVEL >= 1U)
+#ifdef TRU_USER_LOG_ENABLE
 	extern long unsigned int __TTB_BASE;         // Reference external symbol name from the linker file
 	extern long unsigned int __data_start;       // Reference external symbol name from the linker file
 	extern long unsigned int __data_end;         // Reference external symbol name from the linker file
@@ -51,16 +51,16 @@
 	extern long unsigned int __SYS_STACK_LIMIT;  // Reference external symbol name from the linker file
 
 	void disp_linker_sections(void){
-		DEBUG_PRINTF("Linker sections:\n");
-		DEBUG_PRINTF("__TTB_BASE       : 0x%.8x\n", &__TTB_BASE);
-		DEBUG_PRINTF("__data_start     : 0x%.8x\n", &__data_start);
-		DEBUG_PRINTF("__data_end       : 0x%.8x\n", &__data_end);
-		DEBUG_PRINTF("__bss_start__    : 0x%.8x\n", &__bss_start__);
-		DEBUG_PRINTF("__bss_end__      : 0x%.8x\n", &__bss_end__);
-		DEBUG_PRINTF("__heap_start     : 0x%.8x\n", &__heap_start);
-		DEBUG_PRINTF("__heap_end       : 0x%.8x\n", &__heap_end);
-		DEBUG_PRINTF("__SYS_STACK_BASE : 0x%.8x\n", &__SYS_STACK_BASE);
-		DEBUG_PRINTF("__SYS_STACK_LIMIT: 0x%.8x\n\n", &__SYS_STACK_LIMIT);
+		LOG("Linker sections:\n");
+		LOG("__TTB_BASE       : 0x%.8x\n", &__TTB_BASE);
+		LOG("__data_start     : 0x%.8x\n", &__data_start);
+		LOG("__data_end       : 0x%.8x\n", &__data_end);
+		LOG("__bss_start__    : 0x%.8x\n", &__bss_start__);
+		LOG("__bss_end__      : 0x%.8x\n", &__bss_end__);
+		LOG("__heap_start     : 0x%.8x\n", &__heap_start);
+		LOG("__heap_end       : 0x%.8x\n", &__heap_end);
+		LOG("__SYS_STACK_BASE : 0x%.8x\n", &__SYS_STACK_BASE);
+		LOG("__SYS_STACK_LIMIT: 0x%.8x\n\n", &__SYS_STACK_LIMIT);
 	}
 #endif
 
@@ -102,7 +102,7 @@ int main(int argc, char *const argv[]){
 		initialise_monitor_handles();  // Initialise Semihosting
 	#endif
 
-#if(TRU_DEBUG_PRINT_L_SECTIONS == 1U && defined(TRU_DEBUG_PRINT_LEVEL) && TRU_DEBUG_PRINT_LEVEL >= 1U)
+#ifdef TRU_USER_LOG_ENABLE
 	disp_linker_sections();
 #endif
 
