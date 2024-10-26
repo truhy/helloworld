@@ -1,5 +1,5 @@
 # This is free script released into the public domain.
-# GNU make file v20240120 created by Truong Hy.
+# GNU make file v20231226 created by Truong Hy.
 #
 # Builds bare-metal source for the Intel Cyclone V SoC.
 # Depending on the options it will output the following application files:
@@ -50,10 +50,10 @@ alt ?= 0
 
 ifeq ($(OS),Windows_NT)
 ifeq ($(sd),1)
-$(error sd=1 parameter is not supported natively in Windows, use WSL2, Cygwin or MSYS2)
+$(error sd=1 parameter is not supported natively in Windows)
 endif
 ifeq ($(ub),1)
-$(error ub=1 parameter is not supported natively in Windows, use WSL2, Cygwin or MSYS2)
+$(error ub=1 parameter is not supported natively in Windows)
 endif
 endif
 
@@ -63,17 +63,17 @@ ifndef SD_PROGRAM_NAME
 $(error SD_PROGRAM_NAME environment variable is not set)
 endif
 endif
-ifndef APP_PROGRAM_NAME1
-$(error APP_PROGRAM_NAME1 environment variable is not set)
+ifndef BM_PROGRAM_NAME1
+$(error BM_PROGRAM_NAME1 environment variable is not set)
 endif
-ifndef APP_HOME_PATH
-$(error APP_HOME_PATH environment variable is not set)
+ifndef BM_HOME_PATH
+$(error BM_HOME_PATH environment variable is not set)
 endif
-ifndef APP_OUT_PATH
-$(error APP_OUT_PATH environment variable is not set)
+ifndef BM_OUT_PATH
+$(error BM_OUT_PATH environment variable is not set)
 endif
-ifndef APP_SRC_PATH1
-$(error APP_SRC_PATH1 environment variable is not set)
+ifndef BM_SRC_PATH1
+$(error BM_SRC_PATH1 environment variable is not set)
 endif
 ifeq ($(ub),1)
 ifndef UBOOT_DEFCONFIG
@@ -91,9 +91,9 @@ endif
 
 # Convert back-slashes
 ifeq ($(OS),Windows_NT)
-APP_HOME_PATH := $(subst \,/,$(APP_HOME_PATH))
-APP_OUT_PATH := $(subst \,/,$(APP_OUT_PATH))
-APP_SRC_PATH1 := $(subst \,/,$(APP_SRC_PATH1))
+BM_HOME_PATH := $(subst \,/,$(BM_HOME_PATH))
+BM_OUT_PATH := $(subst \,/,$(BM_OUT_PATH))
+BM_SRC_PATH := $(subst \,/,$(BM_SRC_PATH))
 UBOOT_OUT_PATH := $(subst \,/,$(UBOOT_OUT_PATH))
 SD_OUT_PATH := $(subst \,/,$(SD_OUT_PATH))
 endif
@@ -120,22 +120,156 @@ UBOOT_IN_PATH := scripts-linux/uboot
 SD_IN_PATH := scripts-linux/sdcard
 
 # ============
+# Source files
+# ============
+
+# List of source folders and files to exclude from the build
+EXCLUDE_SRCS := \
+	$(BM_SRC_PATH)/hwlib/src/hwmgr/soc_a10 \
+	$(BM_SRC_PATH)/hwlib/src/hwmgr/alt_eth_phy_ksz9031.c \
+	$(BM_SRC_PATH)/hwlib/src/hwmgr/alt_ethernet.c \
+	$(BM_SRC_PATH)/hwlib/src/utils/alt_base.S \
+	$(BM_SRC_PATH)/hwlib/src/utils/alt_base.c \
+	$(BM_SRC_PATH)/hwlib/src/utils/alt_p2uart.c \
+	$(BM_SRC_PATH)/hwlib/src/utils/alt_printf.c
+
+# Get and build a list of source file names from the file system with these locations and pattern
+SRCS := \
+	$(wildcard $(BM_SRC_PATH)/*.c) \
+	$(wildcard $(BM_SRC_PATH)/startup/source/*.c) \
+	$(wildcard $(BM_SRC_PATH)/hwlib/src/hwmgr/*.c) \
+	$(wildcard $(BM_SRC_PATH)/hwlib/src/hwmgr/soc_cv_av/*.c) \
+	$(wildcard $(BM_SRC_PATH)/hwlib/src/utils/*.c) \
+	$(wildcard $(BM_SRC_PATH)/hwlib/src/utils/*.S) \
+	$(wildcard $(BM_SRC_PATH)/trulib/source/*.c)
+	
+# Remove exclude files
+SRCS := $(filter-out $(EXCLUDE_SRCS),$(SRCS))
+
+# List of header include search paths
+INCS := \
+	-I$(BM_SRC_PATH) \
+	-I$(BM_SRC_PATH)/startup/include \
+	-I$(BM_SRC_PATH)/bsp \
+	-I$(BM_SRC_PATH)/hwlib/include \
+	-I$(BM_SRC_PATH)/hwlib/include/soc_cv_av \
+	-I$(BM_SRC_PATH)/trulib/include
+
+# The linker script to use
+ifeq ($(etu),1)
+LINKER_SCRIPT := $(BM_SRC_PATH)/ldscript/tru_c5_ddr_etu.ld
+else
+LINKER_SCRIPT := $(BM_SRC_PATH)/ldscript/tru_c5_ddr.ld
+endif
+
+# =========================================
+# Common linker and compiler build settings
+# =========================================
+
+CFLAGS := -mcpu=cortex-a9 -marm -mfloat-abi=hard -mfpu=neon -mno-unaligned-access -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -std=gnu11
+LDFLAGS := -Xlinker --gc-sections --specs=nosys.specs
+
+# Compiler user symbols (defines)
+CFLAGS_SYMBOL_HWLIB := -Dsoc_cv_av -DCYCLONEV
+CFLAGS_SYMBOL_DEBUG_SEMI := -DSEMIHOSTING
+CFLAGS_SYMBOL_ETU := -DTRU_EXIT_TO_UBOOT=1
+
+# ================================
+# Optimization and Debugging flags
+# ================================
+
+DBG_CFLAGS_OD := -g3 -O0
+REL_CFLAGS_OD := -Os
+
+# =====================================
+# Create list of compiler flags (Debug)
+# =====================================
+
+# Common debug compiler flags
+DBG_CFLAGS := $(DBG_CFLAGS_OD) $(CFLAGS) -DDEBUG $(CFLAGS_SYMBOL_HWLIB)
+# Conditional debug compiler flags
+ifeq ($(semi),1)
+DBG_CFLAGS := $(DBG_CFLAGS) $(CFLAGS_SYMBOL_DEBUG_SEMI)
+endif
+# Conditional debug compiler flags
+ifeq ($(etu),1)
+DBG_CFLAGS := $(DBG_CFLAGS) $(CFLAGS_SYMBOL_ETU)
+endif
+# Common debug compiler flags
+DBG_CFLAGS := $(DBG_CFLAGS) $(INCS)
+
+# ===================================
+# Create list of linker flags (Debug)
+# ===================================
+
+# Common debug linker flags
+DBG_LDFLAGS := $(DBG_CFLAGS_OD) $(CFLAGS) $(LDFLAGS)
+# Conditional debug linker flags
+ifeq ($(semi),1)
+DBG_LDFLAGS := $(DBG_LDFLAGS) --specs=rdimon.specs -lrdimon
+endif
+# Conditional debug linker flags
+ifeq ($(etu),1)
+#DBG_LDFLAGS := $(DBG_LDFLAGS) -nostdlib
+endif
+# Common debug linker flags
+DBG_LDFLAGS := $(DBG_LDFLAGS) -T$(LINKER_SCRIPT)
+
+# =======================================
+# Create list of compiler flags (Release)
+# =======================================
+
+# Common release compiler flags
+REL_CFLAGS := $(REL_CFLAGS_OD) $(CFLAGS) $(CFLAGS_SYMBOL_HWLIB)
+# Conditional release compiler flags
+ifeq ($(semi),1)
+REL_CFLAGS := $(REL_CFLAGS) $(CFLAGS_SYMBOL_DEBUG_SEMI)
+endif
+# Conditional release compiler flags
+ifeq ($(etu),1)
+REL_CFLAGS := $(REL_CFLAGS) $(CFLAGS_SYMBOL_ETU)
+endif
+# Common release compiler flags
+REL_CFLAGS := $(REL_CFLAGS) $(INCS)
+
+# =====================================
+# Create list of linker flags (Release)
+# =====================================
+
+# Common release linker flags
+REL_LDFLAGS := $(REL_CFLAGS_OD) $(CFLAGS) $(LDFLAGS)
+# Conditional release linker flags
+ifeq ($(semi),1)
+REL_LDFLAGS := $(REL_LDFLAGS) --specs=rdimon.specs -lrdimon
+endif
+# Conditional release linker flags
+ifeq ($(etu),1)
+#REL_LDFLAGS := $(REL_LDFLAGS) -nostdlib
+endif
+# Common release linker flags
+REL_LDFLAGS := $(REL_LDFLAGS) -T$(LINKER_SCRIPT)
+
+# ============
 # App settings
 # ============
 
-DBG_PATH1 := $(APP_OUT_PATH)/Debug
-DBG_ELF1 := $(DBG_PATH1)/$(APP_PROGRAM_NAME1).elf
-DBG_ELF_LOAD_FILE1 := $(DBG_PATH1)/$(APP_PROGRAM_NAME1).load.txt
-DBG_ELF_ENTRY_FILE1 := $(DBG_PATH1)/$(APP_PROGRAM_NAME1).entry.txt
-DBG_BIN1 := $(DBG_PATH1)/$(APP_PROGRAM_NAME1).bin
-DBG_UIMG1 := $(DBG_PATH1)/$(APP_PROGRAM_NAME1).uimg
+DBG_PATH := $(BM_OUT_PATH)/Debug
+DBG_ELF := $(DBG_PATH)/$(BM_PROGRAM_NAME1).elf
+DBG_CFLAGS_FILE := $(DBG_PATH)/$(BM_PROGRAM_NAME1).cflags.txt
+DBG_ELF_LOAD_FILE := $(DBG_PATH)/$(BM_PROGRAM_NAME1).load.txt
+DBG_ELF_ENTRY_FILE := $(DBG_PATH)/$(BM_PROGRAM_NAME1).entry.txt
+DBG_BIN := $(DBG_PATH)/$(BM_PROGRAM_NAME1).bin
+DBG_UIMG := $(DBG_PATH)/$(BM_PROGRAM_NAME1).uimg
+DBG_OBJS := $(patsubst %.c,$(DBG_PATH)/%.o,$(SRCS))
 
-REL_PATH1 := $(APP_OUT_PATH)/Release
-REL_ELF1 := $(REL_PATH1)/$(APP_PROGRAM_NAME1).elf
-REL_ELF_LOAD_FILE1 := $(REL_PATH1)/$(APP_PROGRAM_NAME1).load.txt
-REL_ELF_ENTRY_FILE1 := $(REL_PATH1)/$(APP_PROGRAM_NAME1).entry.txt
-REL_BIN1 := $(REL_PATH1)/$(APP_PROGRAM_NAME1).bin
-REL_UIMG1 := $(REL_PATH1)/$(APP_PROGRAM_NAME1).uimg
+REL_PATH := $(BM_OUT_PATH)/Release
+REL_ELF := $(REL_PATH)/$(BM_PROGRAM_NAME1).elf
+REL_CFLAGS_FILE := $(REL_PATH)/$(BM_PROGRAM_NAME1).cflags.txt
+REL_ELF_LOAD_FILE := $(REL_PATH)/$(BM_PROGRAM_NAME1).load.txt
+REL_ELF_ENTRY_FILE := $(REL_PATH)/$(BM_PROGRAM_NAME1).entry.txt
+REL_BIN := $(REL_PATH)/$(BM_PROGRAM_NAME1).bin
+REL_UIMG := $(REL_PATH)/$(BM_PROGRAM_NAME1).uimg
+REL_OBJS := $(patsubst %.c,$(REL_PATH)/%.o,$(SRCS))
 
 # =======================
 # U-Boot settings (Debug)
@@ -160,14 +294,14 @@ DBG_UBOOT_SCRTXT_L3_STR := fpga load 0 \$${loadaddr} \$${filesize}
 DBG_UBOOT_SCRTXT_L4_STR := fi
 DBG_UBOOT_SCRTXT_L5_STR := bridge enable
 ifeq ($(uimg),1)
-DBG_UBOOT_SCRTXT_L6_STR := fatload mmc $(SDFATDEVPART) \$${loadaddr} $(APP_PROGRAM_NAME1).uimg
+DBG_UBOOT_SCRTXT_L6_STR := fatload mmc $(SDFATDEVPART) \$${loadaddr} $(BM_PROGRAM_NAME1).uimg
 DBG_UBOOT_SCRTXT_L7_STR := setenv autostart y; bootm \$${loadaddr}
 ifneq (,$(UBOOT_SCRTXT_ARGS_STR))
 DBG_UBOOT_SCRTXT_L7_STR := $(DBG_UBOOT_SCRTXT_L7_STR) $(UBOOT_SCRTXT_ARGS_STR)
 endif
 else
 ifeq ($(bin),1)
-DBG_UBOOT_SCRTXT_L6_STR = fatload mmc $(SDFATDEVPART) $(DBG_ELF_LOAD_TEXT1) $(APP_PROGRAM_NAME1).bin
+DBG_UBOOT_SCRTXT_L6_STR = fatload mmc $(SDFATDEVPART) $(DBG_ELF_LOAD_TEXT1) $(BM_PROGRAM_NAME1).bin
 ifeq (,$(UBOOT_SCRTXT_ARGS_STR))
 DBG_UBOOT_SCRTXT_L7_STR = go $(DBG_ELF_ENTRY_TEXT1)
 else
@@ -200,14 +334,14 @@ REL_UBOOT_SCRTXT_L3_STR := fpga load 0 \$${loadaddr} \$${filesize}
 REL_UBOOT_SCRTXT_L4_STR := fi
 REL_UBOOT_SCRTXT_L5_STR := bridge enable
 ifeq ($(uimg),1)
-REL_UBOOT_SCRTXT_L6_STR := fatload mmc $(SDFATDEVPART) \$${loadaddr} $(APP_PROGRAM_NAME1).uimg
+REL_UBOOT_SCRTXT_L6_STR := fatload mmc $(SDFATDEVPART) \$${loadaddr} $(BM_PROGRAM_NAME1).uimg
 REL_UBOOT_SCRTXT_L7_STR := setenv autostart y; bootm \$${loadaddr}
 ifneq (,$(UBOOT_SCRTXT_ARGS_STR))
 REL_UBOOT_SCRTXT_L7_STR := $(REL_UBOOT_SCRTXT_L7_STR) $(UBOOT_SCRTXT_ARGS_STR)
 endif
 else
 ifeq ($(bin),1)
-REL_UBOOT_SCRTXT_L6_STR = fatload mmc $(SDFATDEVPART) $(REL_ELF_LOAD_TEXT1) $(APP_PROGRAM_NAME1).bin
+REL_UBOOT_SCRTXT_L6_STR = fatload mmc $(SDFATDEVPART) $(REL_ELF_LOAD_TEXT1) $(BM_PROGRAM_NAME1).bin
 ifeq (,$(UBOOT_SCRTXT_ARGS_STR))
 REL_UBOOT_SCRTXT_L7_STR = go $(REL_ELF_ENTRY_TEXT1)
 else
@@ -224,15 +358,15 @@ endif
 ifeq ($(sd),1)
 DBG_SD_OUT_PATH := $(SD_OUT_PATH)/Debug
 DBG_SD_OUT_SUB_PATH := $(DBG_SD_OUT_PATH)/sd-out
-DBG_SD_CP_PATH := $(DBG_PATH1)/sd-out
+DBG_SD_CP_PATH := $(DBG_PATH)/sd-out
 # SD image file
 DBG_SD_IMG := $(DBG_SD_OUT_SUB_PATH)/$(SD_PROGRAM_NAME).sd.img
 # SD image file
 DBG_SDCP_IMG := $(DBG_SD_CP_PATH)/$(SD_PROGRAM_NAME).sd.img
 # Intermediate files to copy into the SD image
 DBG_SD_SCR := $(addprefix $(DBG_SD_OUT_SUB_PATH)/$(SDFATFOLDER)/,$(notdir $(DBG_UBOOT_SCR)))
-DBG_SD_UIMG := $(addprefix $(DBG_SD_OUT_SUB_PATH)/$(SDFATFOLDER)/,$(notdir $(DBG_UIMG1)))
-DBG_SD_BIN :=  $(addprefix $(DBG_SD_OUT_SUB_PATH)/$(SDFATFOLDER)/,$(notdir $(DBG_BIN1)))
+DBG_SD_UIMG := $(addprefix $(DBG_SD_OUT_SUB_PATH)/$(SDFATFOLDER)/,$(notdir $(DBG_UIMG)))
+DBG_SD_BIN :=  $(addprefix $(DBG_SD_OUT_SUB_PATH)/$(SDFATFOLDER)/,$(notdir $(DBG_BIN)))
 DBG_SD_SFP := $(addprefix $(DBG_SD_OUT_SUB_PATH)/$(SDA2FOLDER)/,$(notdir $(DBG_UBOOT_SFP)))
 DBG_SD_APP_FMT := $(DBG_SD_OUT_SUB_PATH)/sd_app_fmt.txt
 DBG_SD_FPGA_SRC := $(SD_IN_PATH)/Debug/c5_fpga.rbf
@@ -267,15 +401,15 @@ endif
 ifeq ($(sd),1)
 REL_SD_OUT_PATH := $(SD_OUT_PATH)/Release
 REL_SD_OUT_SUB_PATH := $(REL_SD_OUT_PATH)/sd-out
-REL_SD_CP_PATH := $(REL_PATH1)/sd-out
+REL_SD_CP_PATH := $(REL_PATH)/sd-out
 # SD image file
 REL_SD_IMG := $(REL_SD_OUT_SUB_PATH)/$(SD_PROGRAM_NAME).sd.img
 # SD image file
 REL_SDCP_IMG := $(REL_SD_CP_PATH)/$(SD_PROGRAM_NAME).sd.img
 # Intermediate files to copy into the SD image
 REL_SD_SCR := $(addprefix $(REL_SD_OUT_SUB_PATH)/$(SDFATFOLDER)/,$(notdir $(REL_UBOOT_SCR)))
-REL_SD_UIMG := $(addprefix $(REL_SD_OUT_SUB_PATH)/$(SDFATFOLDER)/,$(notdir $(REL_UIMG1)))
-REL_SD_BIN :=  $(addprefix $(REL_SD_OUT_SUB_PATH)/$(SDFATFOLDER)/,$(notdir $(REL_BIN1)))
+REL_SD_UIMG := $(addprefix $(REL_SD_OUT_SUB_PATH)/$(SDFATFOLDER)/,$(notdir $(REL_UIMG)))
+REL_SD_BIN :=  $(addprefix $(REL_SD_OUT_SUB_PATH)/$(SDFATFOLDER)/,$(notdir $(REL_BIN)))
 REL_SD_SFP := $(addprefix $(REL_SD_OUT_SUB_PATH)/$(SDA2FOLDER)/,$(notdir $(REL_UBOOT_SFP)))
 REL_SD_APP_FMT := $(REL_SD_OUT_SUB_PATH)/sd_app_fmt.txt
 REL_SD_FPGA_SRC := $(SD_IN_PATH)/Release/c5_fpga.rbf
@@ -353,12 +487,12 @@ endif
 # ============================
 
 # File exists?
-ifneq (,$(wildcard $(DBG_ELF_LOAD_FILE1)))
-DBG_ELF_LOAD_TEXT1 := $(file <$(DBG_ELF_LOAD_FILE1))
+ifneq (,$(wildcard $(DBG_ELF_LOAD_FILE)))
+DBG_ELF_LOAD_TEXT := $(file <$(DBG_ELF_LOAD_FILE))
 endif
 # File exists?
-ifneq (,$(wildcard $(REL_ELF_LOAD_FILE1)))
-REL_ELF_LOAD_TEXT1 := $(file <$(REL_ELF_LOAD_FILE1))
+ifneq (,$(wildcard $(REL_ELF_LOAD_FILE)))
+REL_ELF_LOAD_TEXT := $(file <$(REL_ELF_LOAD_FILE))
 endif
 
 # =============================
@@ -366,12 +500,12 @@ endif
 # =============================
 
 # File exists?
-ifneq (,$(wildcard $(DBG_ELF_ENTRY_FILE1)))
-DBG_ELF_ENTRY_TEXT1 := $(file <$(DBG_ELF_ENTRY_FILE1))
+ifneq (,$(wildcard $(DBG_ELF_ENTRY_FILE)))
+DBG_ELF_ENTRY_TEXT := $(file <$(DBG_ELF_ENTRY_FILE))
 endif
 # File exists?
-ifneq (,$(wildcard $(REL_ELF_ENTRY_FILE1)))
-REL_ELF_ENTRY_TEXT1 := $(file <$(REL_ELF_ENTRY_FILE1))
+ifneq (,$(wildcard $(REL_ELF_ENTRY_FILE)))
+REL_ELF_ENTRY_TEXT := $(file <$(REL_ELF_ENTRY_FILE))
 endif
 
 # ===========================
@@ -410,20 +544,20 @@ help:
 	@echo "Usage:"
 	@echo "  make [targets] [options]"
 	@echo ""
-	@echo "Targets:"
-	@echo "  release       Build elf Release (default)"
-	@echo "  debug         Build elf Debug"
-	@echo "  clean         Delete all built files"
-	@echo "  cleantemp     Clean except target files"
-	@echo "Options to use with target:"
-	@echo "  semi=1        Use Semihosting"
-	@echo "  etu=1         Elf exit to U-Boot"
-	@echo "  bin=1         Outputs binary from the elf"
-	@echo "  uimg=1        Outputs U-Boot image from the binary"
-	@echo "  sd=1          Outputs SD card image using binary as default,"
-	@echo "                If uimg is specified then is used instead"
-	@echo "  ub=1          Force build U-Boot sources"
-	@echo "  alt=1         Use Altera's SD card image script"
+	@echo "targets:"
+	@echo "  release       build elf Release (default)"
+	@echo "  debug         build elf Debug"
+	@echo "  clean         delete all built files"
+	@echo "  cleantemp     clean except target files"
+	@echo "options to use with target:"
+	@echo "  semi=1        use Semihosting"
+	@echo "  etu=1         elf exit to U-Boot"
+	@echo "  bin=1         outputs binary from the elf"
+	@echo "  uimg=1        outputs U-Boot image from the binary"
+	@echo "  sd=1          outputs SD card image using binary as default,"
+	@echo "                if uimg is specified then is used instead"
+	@echo "  ub=1          force build U-Boot sources"
+	@echo "  alt=1         use Altera's SD card image script"
 
 # ===========
 # Clean rules
@@ -450,18 +584,14 @@ else
 endif
 endif
 
-# Clean app folder
-clean_app:
-	make -f Makefile-app1.mk --no-print-directory clean
-
 # Clean sublevel 1 folder
 clean_1:
-	@if [ -d "$(DBG_PATH1)" ]; then echo rm -rf $(DBG_PATH1); rm -rf $(DBG_PATH1); fi
-	@if [ -d "$(REL_PATH1)" ]; then echo rm -rf $(REL_PATH1); rm -rf $(REL_PATH1); fi
+	@if [ -d "$(DBG_PATH)" ]; then echo rm -rf $(DBG_PATH); rm -rf $(DBG_PATH); fi
+	@if [ -d "$(REL_PATH)" ]; then echo rm -rf $(REL_PATH); rm -rf $(REL_PATH); fi
 
 # Clean root folder
-clean: clean_ub clean_sd clean_app clean_1
-	@if [ -d "$(APP_OUT_PATH)" ] && [ -z "$$(ls -A $(APP_OUT_PATH))" ]; then echo rm -df $(APP_OUT_PATH); rm -df $(APP_OUT_PATH); fi
+clean: clean_ub clean_sd clean_1
+	@if [ -d "$(BM_OUT_PATH)" ] && [ -z "$$(ls -A $(BM_OUT_PATH))" ]; then echo rm -df $(BM_OUT_PATH); rm -df $(BM_OUT_PATH); fi
 
 # ===============================================================
 # Clean temporary files rules (does not remove user target files)
@@ -471,12 +601,10 @@ clean: clean_ub clean_sd clean_app clean_1
 cleantemp_ub:
 ifneq ($(OS),Windows_NT)
 	@if [ -d "$(UBOOT_OUT_PATH)" ]; then \
-		if [ -f "$(DBG_UBOOT_SCRTXT)" ]; then echo rm -f $(DBG_UBOOT_SCRTXT); rm -f $(DBG_UBOOT_SCRTXT); fi; \
-		if [ -f "$(DBG_UBOOT_SCR)" ]; then echo rm -f $(DBG_UBOOT_SCR); rm -f $(DBG_UBOOT_SCR); fi; \
-		if [ -f "$(REL_UBOOT_SCRTXT)" ]; then echo rm -f $(REL_UBOOT_SCRTXT); rm -f $(REL_UBOOT_SCRTXT); fi; \
-		if [ -f "$(REL_UBOOT_SCR)" ]; then echo rm -f $(REL_UBOOT_SCR); rm -f $(REL_UBOOT_SCR); fi; \
-		if [ -d "$(DBG_UBOOT_SUB_PATH)" ]; then echo rm -rf $(DBG_UBOOT_SUB_PATH); rm -rf $(DBG_UBOOT_SUB_PATH); fi; \
-		if [ -d "$(REL_UBOOT_SUB_PATH)" ]; then echo rm -rf $(REL_UBOOT_SUB_PATH); rm -rf $(REL_UBOOT_SUB_PATH); fi; \
+		echo rm -f $(DBG_UBOOT_SCRTXT); rm -f $(DBG_UBOOT_SCRTXT); \
+		echo rm -f $(DBG_UBOOT_SCR); rm -f $(DBG_UBOOT_SCR); \
+		echo rm -f $(REL_UBOOT_SCRTXT); rm -f $(REL_UBOOT_SCRTXT); \
+		echo rm -f $(REL_UBOOT_SCR); rm -f $(REL_UBOOT_SCR); \
 		if [ -d "$(DBG_UBOOT_SRC_PATH)/Makefile)" ]; then make -C $(DBG_UBOOT_SRC_PATH) --no-print-directory clean; fi; \
 		make -C $(UBOOT_IN_PATH) --no-print-directory -f Makefile-prep-ub.mk clean; \
 	fi
@@ -514,17 +642,22 @@ else
 endif
 endif
 
-# Clean app folder
-cleantemp_app:
-	make -f Makefile-app1.mk --no-print-directory cleantemp
+# Clean sublevel 1 folder
+cleantemp_1:
+	@if [ -d "$(DBG_PATH)" ]; then \
+		echo rm -rf $(DBG_PATH)/*.map; rm -rf $(DBG_PATH)/*.map; \
+		echo rm -rf $(DBG_PATH)/*.objdump; rm -rf $(DBG_PATH)/*.objdump; \
+	fi
+	@if [ -d "$(REL_PATH)" ]; then \
+		echo rm -rf $(REL_PATH)/*.map; rm -rf $(REL_PATH)/*.map; \
+		echo rm -rf $(REL_PATH)/*.objdump; rm -rf $(REL_PATH)/*.objdump; \
+	fi
 
 # Clean root folder
-cleantemp: cleantemp_ub cleantemp_sd cleantemp_app
-	@if [ -d "$(APP_OUT_PATH)" ]; then \
-		if [ -f "$(DBG_UBOOT_SCRTXT)" ]; then echo rm -f $(DBG_UBOOT_SCRTXT); rm -f $(DBG_UBOOT_SCRTXT); fi; \
-		if [ -f "$(DBG_UBOOT_SCR)" ]; then echo rm -f $(DBG_UBOOT_SCR); rm -f $(DBG_UBOOT_SCR); fi; \
-		if [ -f "$(REL_UBOOT_SCRTXT)" ]; then echo rm -f $(REL_UBOOT_SCRTXT); rm -f $(REL_UBOOT_SCRTXT); fi; \
-		if [ -f "$(REL_UBOOT_SCR)" ]; then echo rm -f $(REL_UBOOT_SCR); rm -f $(REL_UBOOT_SCR); fi; \
+cleantemp: cleantemp_ub cleantemp_sd cleantemp_1
+	@if [ -d "$(BM_OUT_PATH)" ]; then \
+		echo rm -f $(DBG_OBJS) $(DBG_CFLAGS_FILE) $(DBG_ELF_LOAD_FILE) $(DBG_ELF_ENTRY_FILE) $(DBG_UBOOT_SCRTXT) $(DBG_UBOOT_SCR); rm -f $(DBG_OBJS) $(DBG_CFLAGS_FILE) $(DBG_ELF_LOAD_FILE) $(DBG_ELF_ENTRY_FILE) $(DBG_UBOOT_SCRTXT) $(DBG_UBOOT_SCR); \
+		echo rm -f $(REL_OBJS) $(REL_CFLAGS_FILE) $(REL_ELF_LOAD_FILE) $(REL_ELF_ENTRY_FILE) $(REL_UBOOT_SCRTXT) $(REL_UBOOT_SCR); rm -f $(REL_OBJS) $(REL_CFLAGS_FILE) $(REL_ELF_LOAD_FILE) $(REL_ELF_ENTRY_FILE) $(REL_UBOOT_SCRTXT) $(REL_UBOOT_SCR); \
 	fi
 
 # ===========
@@ -535,9 +668,21 @@ cleantemp: cleantemp_ub cleantemp_sd cleantemp_app
 # Top level targets
 # =================
 
-debug: dbg_make_elf
+debug: $(DBG_ELF) $(DBG_CFLAGS_FILE) $(DBG_ELF_LOAD_FILE) $(DBG_ELF_ENTRY_FILE)
 
-release: rel_make_elf
+release: $(REL_ELF) $(REL_CFLAGS_FILE) $(REL_ELF_LOAD_FILE) $(REL_ELF_ENTRY_FILE)
+
+ifeq ($(bin),1)
+# Add additional target rule
+debug: $(DBG_BIN)
+release: $(REL_BIN)
+endif
+
+ifeq ($(uimg),1)
+# Add additional target rule
+debug: $(DBG_UIMG)
+release: $(REL_UIMG)
+endif
 
 ifeq ($(ub),1)
 debug: dbg_update_uboot
@@ -550,35 +695,173 @@ debug: $(DBG_SD_IMG)
 release: $(REL_SD_IMG)
 endif
 
-# ===============
-# Build app rules
-# ===============
+# =======================================================
+# Create prerequisite list for source files rules (Debug)
+# =======================================================
 
-dbg_make_elf:
-	make -f Makefile-app1.mk --no-print-directory debug semi=$(semi) etu=$(etu) bin=$(bin) uimg=$(uimg)
+DBG_SRCS_PRE := %.c
 
-rel_make_elf:
-	make -f Makefile-app1.mk --no-print-directory release semi=$(semi) etu=$(etu) bin=$(bin) uimg=$(uimg)
+# We want to FORCE build elf if the etu=1 wasn't used in previous compile
+# If the file exists
+ifneq (,$(wildcard $(DBG_CFLAGS_FILE)))
+DBG_CFLAGS_FILE_TEXT := $(strip $(file <$(DBG_CFLAGS_FILE)))
+# etu=1?
+ifeq ($(etu),1)
+# The etu define was not used in the previous compile?
+ifeq (,$(filter $(CFLAGS_SYMBOL_ETU),$(DBG_CFLAGS_FILE_TEXT)))
+DBG_SRCS_PRE := $(DBG_SRCS_PRE) FORCE
+endif
+else
+# The etu define was used in the previous compile?
+ifneq (,$(filter $(CFLAGS_SYMBOL_ETU),$(DBG_CFLAGS_FILE_TEXT)))
+DBG_SRCS_PRE := $(DBG_SRCS_PRE) FORCE
+endif
+endif
+endif
+
+# ==============================
+# Compile and link rules (Debug)
+# ==============================
+
+# Compile source files
+$(DBG_PATH)/%.o: $(DBG_SRCS_PRE)
+	@mkdir -p $(@D)
+	$(CC) -c $(DBG_CFLAGS) -o $@ $<
+	
+# Link object files
+$(DBG_ELF): $(DBG_OBJS)
+	$(LD) $(DBG_LDFLAGS) $(DBG_OBJS) -o $@
+	$(NM) $@ > $@.map
+	$(OD) -d $@ > $@.objdump
+
+# =========================================================
+# Create prerequisite list for source files rules (Release)
+# =========================================================
+
+REL_SRCS_PRE := %.c
+
+# We want to FORCE build elf if the etu=1 wasn't used in previous compile
+# If the file exists
+ifneq (,$(wildcard $(REL_CFLAGS_FILE)))
+REL_CFLAGS_FILE_TEXT := $(strip $(file <$(REL_CFLAGS_FILE)))
+# etu=1?
+ifeq ($(etu),1)
+# The etu define was not used in the previous compile?
+ifeq (,$(filter $(CFLAGS_SYMBOL_ETU),$(REL_CFLAGS_FILE_TEXT)))
+REL_SRCS_PRE := $(REL_SRCS_PRE) FORCE
+endif
+else
+# The etu define was used in the previous compile?
+ifneq (,$(filter $(CFLAGS_SYMBOL_ETU),$(REL_CFLAGS_FILE_TEXT)))
+REL_SRCS_PRE := $(REL_SRCS_PRE) FORCE
+endif
+endif
+endif
+
+# ================================
+# Compile and link rules (Release)
+# ================================
+
+# Compile source files
+$(REL_PATH)/%.o: $(REL_SRCS_PRE)
+	@mkdir -p $(@D)
+	$(CC) -c $(REL_CFLAGS) -o $@ $<
+
+# Link object files
+$(REL_ELF): $(REL_OBJS)
+	$(LD) $(REL_LDFLAGS) $(REL_OBJS) -o $@
+	$(NM) $@ > $@.map
+	$(OD) -d $@ > $@.objdump
+
+# ==============================
+# Write compiler flag file rules
+# ==============================
+
+$(DBG_CFLAGS_FILE): $(DBG_ELF)
+	@echo $(DBG_CFLAGS) > $(DBG_CFLAGS_FILE)
+	@$(SZ) --format=berkeley $(DBG_ELF)
+
+$(REL_CFLAGS_FILE): $(REL_ELF)
+	@echo $(REL_CFLAGS) > $(REL_CFLAGS_FILE)
+	@$(SZ) --format=berkeley $(REL_ELF)
+
+# ==============================
+# Extract elf load address rules
+# ==============================
+
+# Extract elf load address and write to file
+$(DBG_ELF_LOAD_FILE): $(DBG_ELF)
+	$(eval DBG_ELF_INFO := $(shell $(RE) -l $(DBG_ELF)))
+	$(eval DBG_ELF_LOAD_TEXT := $(filter LOAD 0x%,$(DBG_ELF_INFO)))
+	$(eval DBG_ELF_LOAD_TEXT := $(subst LOAD$(SPACE),LOAD_,$(DBG_ELF_LOAD_TEXT)))
+	$(eval DBG_ELF_LOAD_TEXT := $(patsubst LOAD_%,LOAD,$(DBG_ELF_LOAD_TEXT)))
+	$(eval DBG_ELF_LOAD_TEXT := $(subst LOAD$(SPACE),LOAD_,$(DBG_ELF_LOAD_TEXT)))
+	$(eval DBG_ELF_LOAD_TEXT := $(filter LOAD_%,$(DBG_ELF_LOAD_TEXT)))
+	$(eval DBG_ELF_LOAD_TEXT := $(word 1,$(DBG_ELF_LOAD_TEXT)))
+	$(eval DBG_ELF_LOAD_TEXT := $(subst LOAD_,,$(DBG_ELF_LOAD_TEXT)))
+	$(info ELF-load-addr: $(DBG_ELF_LOAD_TEXT))
+	@echo $(DBG_ELF_LOAD_TEXT) > $(DBG_ELF_LOAD_FILE)
+
+# Extract elf entry address and write to file
+$(REL_ELF_LOAD_FILE): $(REL_ELF)
+	$(eval REL_ELF_INFO := $(shell $(RE) -l $(REL_ELF)))
+	$(eval REL_ELF_LOAD_TEXT := $(filter LOAD 0x%,$(REL_ELF_INFO)))
+	$(eval REL_ELF_LOAD_TEXT := $(subst LOAD$(SPACE),LOAD_,$(REL_ELF_LOAD_TEXT)))
+	$(eval REL_ELF_LOAD_TEXT := $(patsubst LOAD_%,LOAD,$(REL_ELF_LOAD_TEXT)))
+	$(eval REL_ELF_LOAD_TEXT := $(subst LOAD$(SPACE),LOAD_,$(REL_ELF_LOAD_TEXT)))
+	$(eval REL_ELF_LOAD_TEXT := $(filter LOAD_%,$(REL_ELF_LOAD_TEXT)))
+	$(eval REL_ELF_LOAD_TEXT := $(word 1,$(REL_ELF_LOAD_TEXT)))
+	$(eval REL_ELF_LOAD_TEXT := $(subst LOAD_,,$(REL_ELF_LOAD_TEXT)))
+	$(info ELF-load-addr: $(REL_ELF_LOAD_TEXT))
+	@echo $(REL_ELF_LOAD_TEXT) > $(REL_ELF_LOAD_FILE)
+
+# ===============================
+# Extract elf entry address rules
+# ===============================
+
+# Extract elf entry address and write to file
+$(DBG_ELF_ENTRY_FILE): $(DBG_ELF)
+	$(eval DBG_ELF_INFO := $(shell $(RE) -l $(DBG_ELF)))
+	$(eval DBG_ELF_ENTRY_TEXT := $(filter Entry 0x%,$(DBG_ELF_INFO)))
+	$(eval DBG_ELF_ENTRY_TEXT := $(subst Entry$(SPACE),Entry_,$(DBG_ELF_ENTRY_TEXT)))
+	$(eval DBG_ELF_ENTRY_TEXT := $(filter Entry_%,$(DBG_ELF_ENTRY_TEXT)))
+	$(eval DBG_ELF_ENTRY_TEXT := $(subst Entry_,,$(DBG_ELF_ENTRY_TEXT)))
+	$(info ELF-entry-point: $(DBG_ELF_ENTRY_TEXT))
+	@echo $(DBG_ELF_ENTRY_TEXT) > $(DBG_ELF_ENTRY_FILE)
+
+# Extract elf entry address and write to file
+$(REL_ELF_ENTRY_FILE): $(REL_ELF)
+	$(eval REL_ELF_INFO := $(shell $(RE) -l $(REL_ELF)))
+	$(eval REL_ELF_ENTRY_TEXT := $(filter Entry 0x%,$(REL_ELF_INFO)))
+	$(eval REL_ELF_ENTRY_TEXT := $(subst Entry$(SPACE),Entry_,$(REL_ELF_ENTRY_TEXT)))
+	$(eval REL_ELF_ENTRY_TEXT := $(filter Entry_%,$(REL_ELF_ENTRY_TEXT)))
+	$(eval REL_ELF_ENTRY_TEXT := $(subst Entry_,,$(REL_ELF_ENTRY_TEXT)))
+	$(info ELF-entry-point: $(REL_ELF_ENTRY_TEXT))
+	@echo $(REL_ELF_ENTRY_TEXT) > $(REL_ELF_ENTRY_FILE)
 
 # ========================
-# Read ELF load text file
+# ELF to binary file rules
 # ========================
+	
+# Convert elf to binary
+$(DBG_BIN): $(DBG_ELF)
+	$(OC) -O binary $(DBG_ELF) $@
 
-$(DBG_ELF_LOAD_FILE1): dbg_make_elf
-	$(eval DBG_ELF_LOAD_TEXT1 := $(file <$(DBG_ELF_LOAD_FILE1)))
+# Convert elf to binary
+$(REL_BIN): $(REL_ELF)
+	$(OC) -O binary $(REL_ELF) $@
 
-$(REL_ELF_LOAD_FILE1): rel_make_elf
-	$(eval REL_ELF_LOAD_TEXT1 := $(file <$(REL_ELF_LOAD_FILE1)))
+# =====================================
+# ELF binary to U-Boot image file rules
+# =====================================
 
-# ========================
-# Read ELF entry text file
-# ========================
+# Convert binary to U-Boot bootable image
+$(DBG_UIMG): $(DBG_BIN) $(DBG_ELF_ENTRY_FILE)
+	$(MK) -A arm -O u-boot -T standalone -C none -a $(DBG_ELF_LOAD_TEXT) -e $(DBG_ELF_ENTRY_TEXT) -n $(BM_PROGRAM_NAME1) -d $(DBG_BIN) $@
 
-$(DBG_ELF_ENTRY_FILE1): dbg_make_elf
-	$(eval DBG_ELF_ENTRY_TEXT1 := $(file <$(DBG_ELF_ENTRY_FILE1)))
-
-$(REL_ELF_ENTRY_FILE1): rel_make_elf
-	$(eval REL_ELF_ENTRY_TEXT1 := $(file <$(REL_ELF_ENTRY_FILE1)))
+# Convert binary to U-Boot bootable image
+$(REL_UIMG): $(REL_BIN) $(REL_ELF_ENTRY_FILE)
+	$(MK) -A arm -O u-boot -T standalone -C none -a $(REL_ELF_LOAD_TEXT) -e $(REL_ELF_ENTRY_TEXT) -n $(BM_PROGRAM_NAME1) -d $(REL_BIN) $@
 
 # ======================================================================
 # Build a list of prerequisites for fundamental changes on SD card image
@@ -593,8 +876,8 @@ REL_SD_FUND_PRE := $(REL_SD_FUND_PRE) $(REL_SD_P1UF_SRC) $(REL_SD_P2UF_SRC) $(RE
 # =====================================================
 
 # Add prerequisite to list
-DBG_SCR_PRE := $(DBG_SCR_PRE) $(DBG_ELF_LOAD_FILE1) $(DBG_ELF_ENTRY_FILE1)
-REL_SCR_PRE := $(REL_SCR_PRE) $(REL_ELF_LOAD_FILE1) $(REL_ELF_ENTRY_FILE1)
+DBG_SCR_PRE := $(DBG_SCR_PRE) $(DBG_ELF_LOAD_FILE) $(DBG_ELF_ENTRY_FILE)
+REL_SCR_PRE := $(REL_SCR_PRE) $(REL_ELF_LOAD_FILE) $(REL_ELF_ENTRY_FILE)
 
 # Add prerequisite to list
 ifneq (,$(wildcard $(DBG_UBOOT_SCRTXT_HDR)))
@@ -614,12 +897,12 @@ endif
 
 # Add prerequisite to list
 ifeq ($(uimg),1)
-DBG_SCR_PRE := $(DBG_SCR_PRE) $(DBG_UIMG1)
-REL_SCR_PRE := $(REL_SCR_PRE) $(REL_UIMG1)
+DBG_SCR_PRE := $(DBG_SCR_PRE) $(DBG_UIMG)
+REL_SCR_PRE := $(REL_SCR_PRE) $(REL_UIMG)
 endif
 ifeq ($(bin),1)
-DBG_SCR_PRE := $(DBG_SCR_PRE) $(DBG_BIN1)
-REL_SCR_PRE := $(REL_SCR_PRE) $(REL_BIN1)
+DBG_SCR_PRE := $(DBG_SCR_PRE) $(DBG_BIN)
+REL_SCR_PRE := $(REL_SCR_PRE) $(REL_BIN)
 endif
 
 # Add prerequisite to list
@@ -778,13 +1061,13 @@ $(DBG_SD_FPGA): $(DBG_SD_FPGA_SRC)
 	@mkdir -p $(@D)
 	@cp -f $(DBG_SD_FPGA_SRC) $@
 
-$(DBG_SD_UIMG): $(DBG_UIMG1)
+$(DBG_SD_UIMG): $(DBG_UIMG)
 	@mkdir -p $(@D)
-	@cp -f $(DBG_UIMG1) $@
+	@cp -f $(DBG_UIMG) $@
 
-$(DBG_SD_BIN): $(DBG_BIN1)
+$(DBG_SD_BIN): $(DBG_BIN)
 	@mkdir -p $(@D)
-	@cp -f $(DBG_BIN1) $@
+	@cp -f $(DBG_BIN) $@
 
 # Copy user partition files
 $(DBG_SD_P1UF): $(DBG_SD_P1UF_SRC)
@@ -813,7 +1096,7 @@ ifeq ($(alt),1)
 else
 	@make -C $(SD_IN_PATH) --no-print-directory -f Makefile-sd-tru.mk debug
 endif
-ifneq ($(SD_OUT_PATH),$(APP_OUT_PATH))
+ifneq ($(SD_OUT_PATH),$(BM_OUT_PATH))
 	@if [ -f "$(DBG_SD_IMG)" ]; then \
 		mkdir -p $(DBG_SD_CP_PATH); \
 		cp -f $@ $(DBG_SD_CP_PATH); \
@@ -857,13 +1140,13 @@ $(REL_SD_FPGA): $(REL_SD_FPGA_SRC)
 	@mkdir -p $(@D)
 	cp -f $(REL_SD_FPGA_SRC) $@
 
-$(REL_SD_UIMG): $(REL_UIMG1)
+$(REL_SD_UIMG): $(REL_UIMG)
 	@mkdir -p $(@D)
-	@cp -f $(REL_UIMG1) $@
+	@cp -f $(REL_UIMG) $@
 
-$(REL_SD_BIN): $(REL_BIN1)
+$(REL_SD_BIN): $(REL_BIN)
 	@mkdir -p $(@D)
-	@cp -f $(REL_BIN1) $@
+	@cp -f $(REL_BIN) $@
 
 # Copy user partition files
 $(REL_SD_P1UF): $(REL_SD_P1UF_SRC)
@@ -892,7 +1175,7 @@ ifeq ($(alt),1)
 else
 	@make -C $(SD_IN_PATH) --no-print-directory -f Makefile-sd-tru.mk release
 endif
-ifneq ($(SD_OUT_PATH),$(APP_OUT_PATH))
+ifneq ($(SD_OUT_PATH),$(BM_OUT_PATH))
 	@if [ -f "$(REL_SD_IMG)" ]; then \
 		mkdir -p $(REL_SD_CP_PATH); \
 		cp -f $@ $(REL_SD_CP_PATH); \
