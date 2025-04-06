@@ -22,7 +22,8 @@
 	SOFTWARE.
 
 	Version: 20240505
-	Target : ARM Cortex-A9 on the DE10-Nano development board (Intel Cyclone V SoC FPGA)
+	Target : ARM Cortex-A9 on the DE10-Nano development board (Intel Cyclone V SoC
+	         FPGA)
 	Type   : Bare-metal C
 
 	A basic "Hello, World!" bare-metal C program for the DE10-Nano
