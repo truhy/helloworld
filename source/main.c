@@ -21,57 +21,61 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	SOFTWARE.
 
-	Version: 20240505
-	Target : ARM Cortex-A9 on the DE10-Nano development board (Intel Cyclone V SoC
-	         FPGA)
-	Type   : Bare-metal C
+	Version: 20251206
+	Target : ARM Cortex-A9 on the DE10-Nano Kit development board (Altera
+	         Cyclone V SoC FPGA)
+	Type   : Stand-alone C application
 
-	A basic "Hello, World!" bare-metal C program for the DE10-Nano
-	development board.  It is for the SoC (aka HPS) part of the FPGA so it
-	should work on other Cyclone V SoC-FPGA dev boards, e.g.: DE1-SoC, DE-10
-	Standard, Arrow SoCKit, etc.
+	A basic "Hello, World!" bare-metal C program for the DE10-Nano Kit
+	development board.  It is for the SoC (aka HPS) part of the FPGA.
+
+	=========
+	Libraries
+	=========
+
+	Open source libraries used (already included in this example):
+		- CMSIS
+		- Trulib and GNU linker script (my own library and script)
+		- Newlib (included with the GNU Toolchain for Arm)
 */
 
 #include "tru_config.h"
 #include "tru_logger.h"
+#include "tru_util_ll.h"
+#include "c5soc/tru_c5soc_hps_clkmgr_ll.h"
 #include <stdio.h>
+
+// Set 1 to enable, 0 to disable
+#define DISP_LINKER_SECTIONS 0U
 
 #ifdef SEMIHOSTING
 	extern void initialise_monitor_handles(void);  // Reference function header from the external Semihosting library
 #endif
 
-#ifdef TRU_USER_LOG_ENABLE
-	extern long unsigned int __TTB_BASE;         // Reference external symbol name from the linker file
-	extern long unsigned int __data_start;       // Reference external symbol name from the linker file
-	extern long unsigned int __data_end;         // Reference external symbol name from the linker file
-	extern long unsigned int __bss_start__;      // Reference external symbol name from the linker file
-	extern long unsigned int __bss_end__;        // Reference external symbol name from the linker file
-	extern long unsigned int __heap_start;       // Reference external symbol name from the linker file
-	extern long unsigned int __heap_end;         // Reference external symbol name from the linker file
-	extern long unsigned int __SYS_STACK_BASE;   // Reference external symbol name from the linker file
-	extern long unsigned int __SYS_STACK_LIMIT;  // Reference external symbol name from the linker file
+#if (DISP_LINKER_SECTIONS == 1U)
+	extern long unsigned int __mmu_ttb_l1_entries_start;  // Reference external symbol name from the linker file
+	extern long unsigned int __data_start;                // Reference external symbol name from the linker file
+	extern long unsigned int __data_end;                  // Reference external symbol name from the linker file
+	extern long unsigned int __bss_start__;               // Reference external symbol name from the linker file
+	extern long unsigned int __bss_end__;                 // Reference external symbol name from the linker file
+	extern long unsigned int __heap_start;                // Reference external symbol name from the linker file
+	extern long unsigned int __heap_end;                  // Reference external symbol name from the linker file
+	extern long unsigned int __SYS_STACK_BASE;            // Reference external symbol name from the linker file
+	extern long unsigned int __SYS_STACK_LIMIT;           // Reference external symbol name from the linker file
 
 	void disp_linker_sections(void){
 		LOG("Linker sections:\n");
-		LOG("__TTB_BASE       : 0x%.8x\n", &__TTB_BASE);
-		LOG("__data_start     : 0x%.8x\n", &__data_start);
-		LOG("__data_end       : 0x%.8x\n", &__data_end);
-		LOG("__bss_start__    : 0x%.8x\n", &__bss_start__);
-		LOG("__bss_end__      : 0x%.8x\n", &__bss_end__);
-		LOG("__heap_start     : 0x%.8x\n", &__heap_start);
-		LOG("__heap_end       : 0x%.8x\n", &__heap_end);
-		LOG("__SYS_STACK_BASE : 0x%.8x\n", &__SYS_STACK_BASE);
-		LOG("__SYS_STACK_LIMIT: 0x%.8x\n\n", &__SYS_STACK_LIMIT);
+		LOG("__mmu_ttb_l1_entries_start: 0x%.8x\n", &__mmu_ttb_l1_entries_start);
+		LOG("__data_start              : 0x%.8x\n", &__data_start);
+		LOG("__data_end                : 0x%.8x\n", &__data_end);
+		LOG("__bss_start__             : 0x%.8x\n", &__bss_start__);
+		LOG("__bss_end__               : 0x%.8x\n", &__bss_end__);
+		LOG("__heap_start              : 0x%.8x\n", &__heap_start);
+		LOG("__heap_end                : 0x%.8x\n", &__heap_end);
+		LOG("__SYS_STACK_BASE          : 0x%.8x\n", &__SYS_STACK_BASE);
+		LOG("__SYS_STACK_LIMIT         : 0x%.8x\n\n", &__SYS_STACK_LIMIT);
 	}
 #endif
-
-// =============================
-// "Hello, World!" demonstration
-// =============================
-
-void tx_hello(void){
-	printf("Hello, World!\n");
-}
 
 // ====================================
 // U-Boot input arguments demonstration
@@ -94,28 +98,24 @@ void tx_cli_args(int argc, char *const argv[]){
 	}
 }
 
-void tx_exit(void){
-	printf("Exiting application..\n");
-}
-
 int main(int argc, char *const argv[]){
 	#ifdef SEMIHOSTING
 		initialise_monitor_handles();  // Initialise Semihosting
 	#endif
 
-#ifdef TRU_USER_LOG_ENABLE
-	disp_linker_sections();
-#endif
+	printf("Hello, World!\n");
 
-#if(TRU_EXIT_TO_UBOOT == 0U)
-	tx_hello();
-#else
-	//tx_cli_args(argc, argv);
-	tx_cli_args(uboot_argc, uboot_argv);
-	tx_hello();
-	tx_exit();
-	tru_hps_uart_ll_wait_empty((TRU_TARGET_TYPE *)TRU_HPS_UART0_BASE);  // Before returning to U-Boot, we will wait for the UART to empty out
-#endif
+	#if (DISP_LINKER_SECTIONS == 1U)
+		disp_linker_sections();
+	#endif
 
-	return 0xa9;
+	#if(TRU_EXIT_TO_UBOOT == 1U)
+		//tx_cli_args(argc, argv);
+		tx_cli_args(uboot_argc, uboot_argv);
+
+		printf("Exiting application..\n");
+		tru_hps_uart_ll_wait_empty((void *)TRU_HPS_UART0_BASE);  // Before returning to U-Boot, we will wait for the UART to empty out
+	#endif
+
+	return 0xa9;  // Returns to the newlib _exit() stub
 }
