@@ -21,7 +21,7 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	SOFTWARE.
 
-	Version: 20251206
+	Version: 20251223
 	Target : ARM Cortex-A9 on the DE10-Nano Kit development board (Altera
 	         Cyclone V SoC FPGA)
 	Type   : Stand-alone C application
@@ -41,8 +41,6 @@
 
 #include "tru_config.h"
 #include "tru_logger.h"
-#include "tru_util_ll.h"
-#include "c5soc/tru_c5soc_hps_clkmgr_ll.h"
 #include <stdio.h>
 
 // Set 1 to enable, 0 to disable
