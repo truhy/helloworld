@@ -21,7 +21,7 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	SOFTWARE.
 
-	Version: 20251223
+	Version: 20260707
 	Target : ARM Cortex-A9 on the DE10-Nano Kit development board (Altera
 	         Cyclone V SoC FPGA)
 	Type   : Stand-alone C application
@@ -45,10 +45,6 @@
 
 // Set 1 to enable, 0 to disable
 #define DISP_LINKER_SECTIONS 0U
-
-#ifdef SEMIHOSTING
-	extern void initialise_monitor_handles(void);  // Reference function header from the external Semihosting library
-#endif
 
 #if (DISP_LINKER_SECTIONS == 1U)
 	extern long unsigned int __mmu_ttb_l1_entries_start;  // Reference external symbol name from the linker file
@@ -97,9 +93,7 @@ void tx_cli_args(int argc, char *const argv[]){
 }
 
 int main(int argc, char *const argv[]){
-	#ifdef SEMIHOSTING
-		initialise_monitor_handles();  // Initialise Semihosting
-	#endif
+	tru_bsp_init();
 
 	printf("Hello, World!\n");
 
@@ -107,12 +101,12 @@ int main(int argc, char *const argv[]){
 		disp_linker_sections();
 	#endif
 
-	#if(TRU_EXIT_TO_UBOOT == 1U)
+	#if(TRU_CFG_EXIT_TO_UBOOT == 1U)
 		//tx_cli_args(argc, argv);
 		tx_cli_args(uboot_argc, uboot_argv);
 
 		printf("Exiting application..\n");
-		tru_hps_uart_ll_wait_empty((void *)TRU_HPS_UART0_BASE);  // Before returning to U-Boot, we will wait for the UART to empty out
+		tru_hps_uart_wait_empty(TRU_SYSCALL_IO_UART_BASE);  // Before returning to U-Boot, we will wait for the UART to empty out
 	#endif
 
 	return 0xa9;  // Returns to the newlib _exit() stub
