@@ -65,6 +65,9 @@ SRCS := \
 	$(wildcard $(APP_SRC_PATH1)/trulib/arm/*.c) \
 	$(wildcard $(APP_SRC_PATH1)/trulib/c5soc/*.c) \
 	$(wildcard $(APP_SRC_PATH1)/trulib/usb/*.c) \
+	$(wildcard $(APP_SRC_PATH1)/trulib/usb/synopsys/*.c) \
+	$(wildcard $(APP_SRC_PATH1)/trulib/usb/synopsys/port/*.c) \
+	$(wildcard $(APP_SRC_PATH1)/trulib/usb/dclass/*.c) \
 	$(wildcard $(APP_SRC_PATH1)/CMSIS/Core/Source/*.c) \
 	$(wildcard $(APP_SRC_PATH1)/CMSIS/Device/c5soc/source/*.c)
 	
